@@ -87,17 +87,26 @@ npm run test
 npm run build
 ```
 
-CI runs the audit, lint, test, and production-build gates. Production dependency versions are pinned; Dependabot checks the npm workspaces and GitHub Actions weekly.
+GitHub Actions runs the audit, lint, tests, and production builds for pull requests and pushes to `main`. After a successful check on `main`, it sends Render deploy-hook requests for all four services. Production dependency versions are pinned; Dependabot checks the npm workspaces and GitHub Actions weekly.
 
 ## One-command deployment
 
-After you push this project to a Git provider, connect that repository and deployment branch to the Render Blueprint in `render.yaml`, create the four services, and configure the required production environment variables, deploy future changes from the repository root with:
+After connecting this repository to Render and creating the four services from `render.yaml`, configure production environment variables and add these four GitHub Actions repository secrets:
+
+- `RENDER_DEPLOY_HOOK_API`
+- `RENDER_DEPLOY_HOOK_PRO`
+- `RENDER_DEPLOY_HOOK_PHOTO`
+- `RENDER_DEPLOY_HOOK_ADMIN`
+
+Create each URL in the corresponding Render service's **Settings → Deploy Hook** section. Do not commit deploy-hook URLs or put them in `.env` or workflow files. In Render, turn off automatic deploys for these services so they deploy only after CI succeeds.
+
+Deploy future changes from the repository root with:
 
 ```sh
 npm run deploy
 ```
 
-This runs the audit, lint, tests, and production builds first. If they pass, it pushes the current branch to its configured upstream; Render then deploys the new commit when auto-deploy is enabled for the connected services. The command cannot create the initial Render services or configure production secrets for you. If the branch has no Git upstream, configure the Git remote and upstream before running it. To start the four local services instead, use `npm run all`.
+This runs the audit, lint, tests, and production builds first. If they pass, it pushes the current branch to its configured upstream. On `main`, GitHub Actions reruns the checks and asks Render to deploy all four services; pull requests run checks but never deploy. The command cannot create the initial Render services or configure production secrets and GitHub repository secrets for you. If the branch has no Git upstream, configure the Git remote and upstream before running it. To start the four local services instead, use `npm run all`.
 
 ## Render deployment
 

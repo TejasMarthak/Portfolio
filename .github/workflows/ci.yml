@@ -2,11 +2,22 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,7 +25,45 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run audit
-      - run: npm run lint
-      - run: npm run test
-      - run: npm run build
+      - run: npm run check:all
+
+  deploy:
+    name: Deploy Render services
+    needs: quality
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require Render deploy hooks
+        env:
+          API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+          PRO_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PRO }}
+          PHOTO_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PHOTO }}
+          ADMIN_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_ADMIN }}
+        run: |
+          for name in API_HOOK PRO_HOOK PHOTO_HOOK ADMIN_HOOK; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Add the GitHub Actions secret for ${name} before deploying."
+              exit 1
+            fi
+          done
+
+      - name: Deploy API
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
+
+      - name: Deploy developer portfolio
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PRO }}
+        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
+
+      - name: Deploy photography portfolio
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PHOTO }}
+        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
+
+      - name: Deploy admin panel
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_ADMIN }}
+        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
