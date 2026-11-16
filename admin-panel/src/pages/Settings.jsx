@@ -7,16 +7,57 @@ import WhatsAppConnection from '../components/WhatsAppConnection';
 
 const defaults = {
   social: {},
-  contact: { email: '', location: '' },
+  contact: { email: '', phone: '', whatsapp: '', location: '' },
   proSite: { live: true, maintenanceMsg: '', crossLinkToPhoto: '' },
   photoSite: { live: true, maintenanceMsg: '', crossLinkToPro: '' },
   analytics: { googleAnalyticsId: '', googleTagManagerId: '' }
 };
 
+const handleUrlBuilders = {
+  instagram: (handle) => `https://www.instagram.com/${handle}`,
+  facebook: (handle) => `https://www.facebook.com/${handle}`,
+  x: (handle) => `https://x.com/${handle}`,
+  twitter: (handle) => `https://x.com/${handle}`,
+  github: (handle) => `https://github.com/${handle}`,
+  linkedin: (handle) => `https://www.linkedin.com/in/${handle}`,
+  youtube: (handle) => `https://www.youtube.com/@${handle}`,
+  tiktok: (handle) => `https://www.tiktok.com/@${handle}`,
+  threads: (handle) => `https://www.threads.net/@${handle}`,
+  pinterest: (handle) => `https://www.pinterest.com/${handle}`,
+  twitch: (handle) => `https://www.twitch.tv/${handle}`,
+  behance: (handle) => `https://www.behance.net/${handle}`,
+  dribbble: (handle) => `https://dribbble.com/${handle}`,
+  medium: (handle) => `https://medium.com/@${handle}`
+};
+
+function normalizeProfileUrl(platform, value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+  try {
+    const url = new URL(input);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    const builder = handleUrlBuilders[platform.trim().toLowerCase()];
+    const handle = input.replace(/^@/, '').replace(/^\/+|\/+$/g, '');
+    return builder && handle && !/\s/.test(handle) ? builder(encodeURIComponent(handle)) : '';
+  }
+}
+
+function normalizeSocial(social = {}) {
+  return Object.fromEntries(Object.entries(social).map(([name, value]) => [
+    name,
+    typeof value === 'string'
+      ? { url: value, enabled: true }
+      : { url: value?.url || '', enabled: value?.enabled !== false }
+  ]));
+}
+
 function settingsDraft(settings = {}) {
   return Object.fromEntries(Object.entries(defaults).map(([key, defaultValue]) => [
     key,
-    { ...defaultValue, ...(settings[key] || {}) }
+    key === 'social'
+      ? normalizeSocial(settings.social)
+      : { ...defaultValue, ...(settings[key] || {}) }
   ]));
 }
 
@@ -50,9 +91,28 @@ export default function Settings() {
     setDraft((current) => ({ ...current, [group]: { ...current[group], [key]: value } }));
   }
 
+  function updateSocial(name, field, value) {
+    setDraft((current) => ({
+      ...current,
+      social: {
+        ...current.social,
+        [name]: { ...current.social[name], [field]: value }
+      }
+    }));
+  }
+
   function submit(event) {
     event.preventDefault();
-    save.mutate(draft);
+    const social = {};
+    for (const [name, profile] of Object.entries(draft.social)) {
+      const url = normalizeProfileUrl(name, profile.url || '');
+      if (profile.url && !url) {
+        toast.error(`Enter a valid URL or a supported ${name} handle.`);
+        return;
+      }
+      social[name] = { ...profile, url };
+    }
+    save.mutate({ ...draft, social });
   }
 
   return (
@@ -65,7 +125,7 @@ export default function Settings() {
           <section className="panel editor-panel settings-section">
             <div className="panel-title"><div><h2>Social profiles</h2><p>These links appear in the footer of both portfolios.</p></div></div>
             <div className="settings-fields">
-              {Object.entries(draft.social).map(([name, url], index) => (
+              {Object.entries(draft.social).map(([name, profile], index) => (
                 <div className="social-link-row" key={index}>
                   <TextField label="Profile name" value={name} onChange={(nextName) => {
                     if (!nextName.trim() || nextName === name) return;
@@ -75,10 +135,11 @@ export default function Settings() {
                       return;
                     }
                     delete social[name];
-                    social[nextName] = url;
+                    social[nextName] = profile;
                     setDraft((current) => ({ ...current, social }));
                   }} placeholder="Instagram" />
-                  <TextField label="Profile URL" value={url} type="url" onChange={(nextUrl) => update('social', name, nextUrl)} placeholder="https://" />
+                  <TextField label="Profile URL or handle" value={profile.url} onChange={(url) => updateSocial(name, 'url', url)} placeholder="https://… or @handle" />
+                  <label className="social-enabled-toggle"><input type="checkbox" checked={profile.enabled} onChange={(event) => updateSocial(name, 'enabled', event.target.checked)} /><span>Show on sites</span></label>
                   <button type="button" className="icon-button danger-icon" aria-label={`Remove ${name} social link`} onClick={() => {
                     const social = { ...draft.social };
                     delete social[name];
@@ -91,9 +152,10 @@ export default function Settings() {
                 let name = 'New profile';
                 let index = 2;
                 while (name in social) name = `New profile ${index++}`;
-                social[name] = '';
+                social[name] = { url: '', enabled: true };
                 setDraft((current) => ({ ...current, social }));
               }}><Plus size={14} />Add social profile</button>
+              <p className="social-help">Add any network by name. Handles are supported for Instagram, Facebook, X/Twitter, GitHub, LinkedIn, YouTube, TikTok, Threads, Pinterest, Twitch, Behance, Dribbble, and Medium; other networks need a full URL.</p>
             </div>
           </section>
 
@@ -101,8 +163,11 @@ export default function Settings() {
             <div className="panel-title"><div><h2>Contact information</h2><p>Shown in the contact area of each site.</p></div><button type="button" className="button button-muted" onClick={() => setDraft((current) => ({ ...current, contact: { ...defaults.contact } }))}><Trash2 size={13} />Clear details</button></div>
             <div className="settings-fields settings-grid">
               <TextField label="Contact email" value={draft.contact.email} type="email" onChange={(value) => update('contact', 'email', value)} placeholder="you@example.com" />
+              <TextField label="Public phone number" value={draft.contact.phone} type="tel" onChange={(value) => update('contact', 'phone', value)} placeholder="+91 98765 43210" />
+              <TextField label="Public WhatsApp number" value={draft.contact.whatsapp} type="tel" onChange={(value) => update('contact', 'whatsapp', value)} placeholder="+91 98765 43210" />
               <TextField label="Location" value={draft.contact.location} onChange={(value) => update('contact', 'location', value)} placeholder="City, Country" />
             </div>
+            <p className="social-help">Only details entered here are shown publicly on both portfolios. The WhatsApp contact link is separate from the private CMS notification connection.</p>
           </section>
 
           <section className="panel editor-panel settings-section">

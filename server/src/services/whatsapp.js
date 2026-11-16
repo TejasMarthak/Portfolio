@@ -4,9 +4,11 @@ const {
 const QRCode = require('qrcode');
 const pino = require('pino');
 const WhatsAppAuth = require('../models/WhatsAppAuth');
+const { normalizeWhatsAppPhoneNumber } = require('../utils/whatsappPhoneNumber');
 
 let socket;
 let socketPromise;
+let socketStartupTimer;
 let reconnectDelay = 1000;
 let reconnectTimer;
 let pendingCredentialWrite = Promise.resolve();
@@ -21,6 +23,13 @@ let registeredSession = false;
 let logoutWarning = false;
 let connectionError = '';
 const maxReconnectDelay = 60000;
+const socketOpenTimeoutMs = 15000;
+
+function clearSocketStartupTimer() {
+  if (!socketStartupTimer) return;
+  clearTimeout(socketStartupTimer);
+  socketStartupTimer = undefined;
+}
 
 function encode(value) {
   return JSON.parse(JSON.stringify(value, BufferJSON.replacer));
@@ -90,6 +99,7 @@ async function createSocket() {
     });
     currentSocket.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
       if (socket !== currentSocket) return;
+      if (qr || connection === 'open' || connection === 'close') clearSocketStartupTimer();
       if (qr && connectionMode === 'qr') {
         connectionStatus = 'qr';
         connectionError = '';
@@ -117,7 +127,12 @@ async function createSocket() {
         if (socket === currentSocket) socket = undefined;
         qrDataUrl = '';
         pairingCode = '';
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const disconnectError = lastDisconnect?.error;
+        const statusCode = disconnectError?.output?.statusCode;
+        console.error('[whatsapp] connection closed:', {
+          statusCode: Number.isInteger(statusCode) ? statusCode : 'unknown',
+          errorCode: disconnectError?.code || 'UNKNOWN'
+        });
         if (statusCode === DisconnectReason.loggedOut) {
           registeredSession = false;
           connectionStatus = 'disconnected';
@@ -130,10 +145,21 @@ async function createSocket() {
         connectionStatus = reconnectEnabled && registeredSession ? 'reconnecting' : 'disconnected';
         connectionError = reconnectEnabled && registeredSession
           ? 'WhatsApp connection was interrupted. The API is reconnecting.'
-          : 'WhatsApp could not connect. Check the API internet connection and try again.';
+          : statusCode === 429
+            ? 'WhatsApp temporarily limited pairing. Wait before trying again.'
+            : 'WhatsApp closed the connection before pairing completed. Check the API host connection and try again.';
         if (reconnectEnabled && registeredSession) scheduleReconnect();
       }
     });
+    clearSocketStartupTimer();
+    const startupTimer = setTimeout(() => {
+      if (socketStartupTimer === startupTimer) socketStartupTimer = undefined;
+      if (socket !== currentSocket || !['connecting', 'reconnecting'].includes(connectionStatus)) return;
+      connectionStatus = 'error';
+      connectionError = 'WhatsApp did not respond while connecting. Check the API internet connection and try again.';
+      currentSocket.end(new Error('WhatsApp connection timed out'));
+    }, socketOpenTimeoutMs);
+    socketStartupTimer = startupTimer;
     return currentSocket;
   })();
 
@@ -157,6 +183,24 @@ function getWhatsAppStatus() {
   };
 }
 
+async function waitForSocketOpen(currentSocket) {
+  let timeout;
+  try {
+    await Promise.race([
+      currentSocket.waitForSocketOpen(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => {
+          currentSocket.end(new Error('WhatsApp socket open timed out'));
+          reject(new Error('WhatsApp connection timed out'));
+        }, socketOpenTimeoutMs);
+      })
+    ]);
+    if (socket === currentSocket) clearSocketStartupTimer();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function startWhatsAppLinking(mode = 'qr') {
   if (!['qr', 'pairing-code'].includes(mode)) {
     const error = new Error('Choose QR or phone-number pairing');
@@ -168,26 +212,51 @@ async function startWhatsAppLinking(mode = 'qr') {
     error.status = 409;
     throw error;
   }
-  reconnectEnabled = true;
-  connectionMode = mode;
   if (socket && ['error', 'disconnected'].includes(connectionStatus)) {
     const staleSocket = socket;
     socket = undefined;
+    clearSocketStartupTimer();
     staleSocket.end(new Error('Replacing failed WhatsApp connection'));
   }
+  if (!registeredSession && ['error', 'disconnected'].includes(connectionStatus)) {
+    try {
+      await pendingCredentialWrite;
+      await WhatsAppAuth.deleteMany({});
+      credentialWriteError = undefined;
+      linkedNumber = '';
+    } catch (error) {
+      connectionStatus = 'error';
+      connectionError = 'Could not clear the failed WhatsApp pairing state. Check MongoDB and try again.';
+      console.error('[whatsapp] failed to reset pairing state:', error.code || error.name);
+      const resetError = new Error(connectionError);
+      resetError.status = 503;
+      throw resetError;
+    }
+  }
+  reconnectEnabled = true;
+  connectionMode = mode;
   qrDataUrl = '';
   pairingCode = '';
   logoutWarning = false;
   connectionError = '';
   connectionStatus = 'connecting';
-  await createSocket();
+  try {
+    await createSocket();
+  } catch (error) {
+    connectionStatus = 'error';
+    connectionError = 'WhatsApp could not start a fresh connection. Check the API database connection and try again.';
+    console.error('[whatsapp] failed to start pairing:', error.code || error.name);
+    const startError = new Error(connectionError);
+    startError.status = 503;
+    throw startError;
+  }
   return getWhatsAppStatus();
 }
 
 async function requestWhatsAppPairingCode(phoneNumber) {
-  const normalizedNumber = String(phoneNumber || '').replace(/[+\s()-]/g, '');
-  if (!/^[1-9]\d{7,14}$/.test(normalizedNumber)) {
-    const error = new Error('Enter a valid phone number with its country code');
+  const normalizedNumber = normalizeWhatsAppPhoneNumber(phoneNumber);
+  if (!normalizedNumber) {
+    const error = new Error('Enter a valid international mobile number. Indian numbers need +91 and 10 mobile digits.');
     error.status = 400;
     throw error;
   }
@@ -199,7 +268,7 @@ async function requestWhatsAppPairingCode(phoneNumber) {
     throw error;
   }
   try {
-    await currentSocket.waitForSocketOpen();
+    await waitForSocketOpen(currentSocket);
     const code = await currentSocket.requestPairingCode(normalizedNumber);
     pairingCode = code;
     connectionStatus = 'pairing-code';
@@ -209,12 +278,15 @@ async function requestWhatsAppPairingCode(phoneNumber) {
     connectionError = 'Could not get a pairing code. Check the number and API connection, then try again.';
     connectionStatus = 'error';
     console.error('[whatsapp] pairing code request failed:', error.code || error.name);
-    throw error;
+    const pairingError = new Error('WhatsApp could not generate a pairing code. Verify the number includes its country code and try again.');
+    pairingError.status = 503;
+    throw pairingError;
   }
 }
 
 async function disconnectWhatsApp() {
   reconnectEnabled = false;
+  clearSocketStartupTimer();
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = undefined;
@@ -283,6 +355,7 @@ async function startWhatsApp() {
     return getWhatsAppStatus();
   } catch (error) {
     connectionStatus = 'error';
+    connectionError = 'WhatsApp could not restore its saved session. Check the API database connection and restart the API.';
     console.error('[whatsapp] startup failed:', error.code || error.name);
     return getWhatsAppStatus();
   }

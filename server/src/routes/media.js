@@ -16,6 +16,8 @@ async function saveUpload(req, res, next) {
     const result = await uploadToCloudinary(file.buffer, file.mimetype, folder);
     const url = result.resourceType === 'image' || result.resourceType === 'video'
       ? result.secure_url.replace('/upload/', '/upload/f_auto,q_auto/')
+      : file.mimetype === 'application/pdf'
+        ? result.secure_url.replace('/upload/', '/upload/fl_inline/')
       : result.secure_url;
     const media = await Media.create({
       publicId: result.public_id, url, resourceType: result.resourceType,

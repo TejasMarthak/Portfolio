@@ -74,6 +74,7 @@ app.use(xss());
 app.use(compression());
 app.use((req, res, next) => {
   if (req.path === '/health' || req.path === '/ping') return next();
+  if (req.method === 'GET' && req.path === '/api/whatsapp') return next();
   return rateLimits.general(req, res, next);
 });
 app.use(morgan((tokens, req, res) => JSON.stringify({

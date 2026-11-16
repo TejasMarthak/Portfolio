@@ -32,7 +32,7 @@ async function issuePair(admin) {
   const refreshToken = jwt.sign({
     ...identity, jti: refreshJti, accessJti, accessExp, sid: sessionId, type: 'refresh'
   }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d'
+    expiresIn: process.env.JWT_REFRESH_EXPIRES || '30d'
   });
   const refreshExp = jwt.decode(refreshToken).exp;
   await AuthSession.create({

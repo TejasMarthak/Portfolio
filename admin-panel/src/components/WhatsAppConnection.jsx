@@ -8,12 +8,12 @@ const activeStatuses = new Set(['connecting', 'qr', 'pairing-code', 'reconnectin
 
 export default function WhatsAppConnection() {
   const queryClient = useQueryClient();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('+91');
   const [pairingCode, setPairingCode] = useState('');
   const statusQuery = useQuery({
     queryKey: ['whatsapp-status'],
     queryFn: () => api.get('/api/whatsapp'),
-    refetchInterval: (query) => activeStatuses.has(query.state.data?.data?.whatsapp?.status) ? 1500 : false
+    refetchInterval: (query) => activeStatuses.has(query.state.data?.data?.whatsapp?.status) ? 3000 : false
   });
   const whatsapp = statusQuery.data?.data?.whatsapp;
 
@@ -114,7 +114,7 @@ export default function WhatsAppConnection() {
               connectPhone.mutate(phoneNumber);
             }}>
               <label htmlFor="whatsapp-phone"><Smartphone size={17} /> Connect with phone number</label>
-              <p>Enter your number in international format, including its country code (for example, +91…).</p>
+              <p>Enter your number in international format. For an Indian number, use +91 followed by the 10-digit mobile number.</p>
               <div><input id="whatsapp-phone" type="tel" autoComplete="tel" inputMode="tel" placeholder="+919876543210" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required minLength={8} maxLength={20} /><button type="submit" className="button button-muted" disabled={busy}>{connectPhone.isPending ? 'Requesting…' : 'Get pairing code'}</button></div>
             </form>
           </div>

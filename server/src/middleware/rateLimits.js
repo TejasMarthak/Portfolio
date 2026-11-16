@@ -32,10 +32,13 @@ function limiter(windowMs, limit, message, prefix) {
 }
 
 const rateLimits = {
-  general: limiter(15 * 60 * 1000, 100, 'Too many requests', 'general'),
+  general: limiter(15 * 60 * 1000, 100, 'Too many requests', 'general-v2'),
   contact: limiter(60 * 60 * 1000, 5, 'Too many contact requests', 'contact'),
-  auth: limiter(60 * 60 * 1000, 10, 'Too many authentication attempts', 'auth'),
-  whatsapp: limiter(60 * 60 * 1000, 5, 'Too many WhatsApp pairing attempts', 'whatsapp'),
+  authStart: limiter(15 * 60 * 1000, 30, 'Too many sign-in requests. Try again shortly.', 'auth-start-v2'),
+  authCallback: limiter(60 * 60 * 1000, 10, 'Too many authentication attempts. Try again later.', 'auth-callback-v3'),
+  authRefresh: limiter(15 * 60 * 1000, 30, 'Too many session refresh requests. Try again shortly.', 'auth-refresh-v2'),
+  whatsapp: limiter(15 * 60 * 1000, 5, 'Too many WhatsApp pairing attempts. Wait 15 minutes before trying again.', 'whatsapp-v2'),
+  whatsappStatus: limiter(15 * 60 * 1000, 1000, 'Too many WhatsApp status requests. Try again shortly.', 'whatsapp-status-v1'),
   adminWrite: limiter(15 * 60 * 1000, 60, 'Too many changes', 'admin-write'),
   upload: limiter(60 * 60 * 1000, 20, 'Too many uploads', 'upload')
 };

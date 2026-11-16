@@ -3,7 +3,7 @@ const fallbackAttempts = new Map();
 const lockDurationSeconds = 15 * 60;
 
 function keyFor(req) {
-  return `portfolio:auth-lock:${req.ip}`;
+  return `portfolio:auth-lock-v2:${req.ip}`;
 }
 
 async function checkLockout(req, res, next) {

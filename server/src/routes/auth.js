@@ -5,11 +5,9 @@ const { rateLimits } = require('../middleware/rateLimits');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { checkLockout, recordFailure, clearFailures } = require('../middleware/authLockout');
 const { issuePair, setPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie } = require('../config/tokens');
-const { redis } = require('../middleware/rateLimits');
-const crypto = require('crypto');
 const AuthSession = require('../models/AuthSession');
+const { createOAuthState, consumeOAuthState } = require('../services/oauthState');
 const router = express.Router();
-const oauthFallbackStates = new Map();
 
 router.get('/status', (_req, res) => res.json({
   googleSignInConfigured: Boolean(
@@ -20,41 +18,18 @@ router.get('/status', (_req, res) => res.json({
   )
 }));
 
-async function createOAuthState(ip) {
-  const state = crypto.randomBytes(32).toString('hex');
-  if (redis) await redis.set(`portfolio:oauth-state:${state}`, ip, 'EX', 600);
-  else {
-    const now = Date.now();
-    for (const [key, entry] of oauthFallbackStates) {
-      if (entry.expiresAt <= now) oauthFallbackStates.delete(key);
-    }
-    oauthFallbackStates.set(state, { ip, expiresAt: now + 600000 });
-  }
-  return state;
-}
-
-async function consumeOAuthState(req) {
-  const state = typeof req.query.state === 'string' ? req.query.state : '';
-  if (!/^[a-f0-9]{64}$/.test(state)) return false;
-  const originatingIp = redis
-    ? await redis.getdel(`portfolio:oauth-state:${state}`)
-    : oauthFallbackStates.get(state)?.expiresAt > Date.now() ? oauthFallbackStates.get(state)?.ip : null;
-  oauthFallbackStates.delete(state);
-  return originatingIp === req.ip;
-}
-
-router.get('/google', rateLimits.auth, checkLockout, async (req, res, next) => {
+router.get('/google', rateLimits.authStart, checkLockout, async (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google sign-in is not configured' });
   try {
-    const state = await createOAuthState(req.ip);
+    const state = await createOAuthState();
     return passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next);
   } catch (error) {
     return next(error);
   }
 });
-router.get('/google/callback', rateLimits.auth, checkLockout, async (req, res, next) => {
+router.get('/google/callback', rateLimits.authCallback, checkLockout, async (req, res, next) => {
   try {
-    if (!await consumeOAuthState(req)) {
+    if (!await consumeOAuthState(req.query.state)) {
       await recordFailure(req);
       return res.status(403).json({ error: 'Sign-in request could not be verified' });
     }
@@ -72,7 +47,7 @@ router.get('/google/callback', rateLimits.auth, checkLockout, async (req, res, n
     }).catch(next);
   })(req, res, next);
 });
-router.post('/refresh', rateLimits.auth, verifyCsrf, async (req, res, next) => {
+router.post('/refresh', rateLimits.authRefresh, verifyCsrf, async (req, res, next) => {
   try {
     if (!req.cookies[refreshCookie]) return res.status(401).json({ error: 'Authentication required' });
     const pair = await rotateRefresh(req.cookies[refreshCookie]);

@@ -31,6 +31,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .topbar nav { display: flex; gap: clamp(17px, 3vw, 42px); }
 .topbar nav a, .view-toggle { color: #c1bed0; font-size: 12px; letter-spacing: .07em; transition: color .2s ease; }
 .topbar nav a:hover, .view-toggle:hover { color: var(--mint); }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.portfolio-switch { display: inline-flex; align-items: center; gap: 7px; padding: 10px 13px; border: 1px solid #33f2c766; border-radius: 999px; color: var(--mint); background: #33f2c70a; font-size: 11px; letter-spacing: .04em; transition: background .2s ease, border-color .2s ease; }
+.portfolio-switch:hover { border-color: var(--mint); background: #33f2c71c; }
 .view-toggle { border: 1px solid #ffffff2a; border-radius: 999px; padding: 10px 15px; background: #ffffff08; cursor: pointer; }
 .journey { position: relative; z-index: 1; }
 .journey-section { min-height: 100svh; padding: 140px clamp(24px, 9vw, 150px) 100px; display: flex; align-items: center; position: relative; scroll-margin-top: 20px; }
@@ -72,7 +75,8 @@ h1 { margin-bottom: 20px; max-width: 950px; font-size: clamp(68px, 11vw, 150px);
 .skill-node { display: inline-flex; align-items: center; gap: 7px; }
 .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .project-card { overflow: hidden; border: 1px solid #ffffff17; border-radius: 18px; background: #ffffff05; }
-.project-card > img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #10111d; }
+.project-card > .project-media-trigger { aspect-ratio: 16 / 9; overflow: hidden; background: #10111d; }
+.project-media-trigger > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .project-copy { padding: 21px; }
 .project-heading { display: flex; align-items: center; gap: 8px; }
 .project-heading svg { color: var(--mint); }
@@ -80,7 +84,7 @@ h1 { margin-bottom: 20px; max-width: 950px; font-size: clamp(68px, 11vw, 150px);
 .project-copy > p { min-height: 42px; margin: 10px 0; color: #aaa7b8; font-size: 13px; line-height: 1.6; }
 .project-copy .tag-list { margin-top: 12px; }
 .project-links { display: flex; gap: 19px; margin-top: 20px; }
-.project-links a { display: inline-flex; align-items: center; gap: 6px; color: var(--mint); font-size: 11px; }
+.project-links a, .project-links .media-trigger { display: inline-flex; width: auto; align-items: center; gap: 6px; color: var(--mint); font-size: 11px; }
 .hobby-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .hobby-layout figure { margin: 0; }
 .hobby-layout img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 13px; }
@@ -95,6 +99,11 @@ h1 { margin-bottom: 20px; max-width: 950px; font-size: clamp(68px, 11vw, 150px);
 .contact-form textarea { resize: vertical; }
 .contact-form button:disabled { opacity: .6; cursor: wait; }
 .contact-meta { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 22px; color: #9996a8; font-size: 12px; }
+.site-contact-details { display: flex; align-items: center; flex-wrap: wrap; gap: 15px 22px; }
+.site-contact-details > a, .site-contact-location { display: inline-flex; align-items: center; gap: 7px; color: inherit; }
+.site-contact-details > a:hover, .site-contact-socials a:hover { color: var(--mint); }
+.site-contact-details svg { flex: 0 0 auto; color: var(--mint); }
+.site-contact-socials { display: flex; flex-wrap: wrap; gap: 14px; }
 .site-footer { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 30px clamp(22px, 5vw, 80px); border-top: 1px solid #ffffff12; color: #787687; font-size: 11px; }
 .site-footer > div { display: flex; gap: 15px; text-transform: capitalize; }
 .site-footer a:hover { color: var(--mint); }
@@ -118,6 +127,8 @@ h1 { margin-bottom: 20px; max-width: 950px; font-size: clamp(68px, 11vw, 150px);
 @media (max-width: 760px) {
   .topbar { height: 65px; padding: 0 17px; }
   .topbar nav { display: none; }
+  .header-actions { gap: 6px; }
+  .portfolio-switch, .view-toggle { padding: 8px 9px; font-size: 9px; white-space: nowrap; }
   .journey-section { min-height: auto; padding: 115px 20px 65px; }
   .hero-section { min-height: 95svh; padding-top: 140px; }
   h1 { font-size: clamp(60px, 17vw, 102px); }

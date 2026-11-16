@@ -30,6 +30,9 @@ a { color: inherit; text-decoration: none; }
 .photo-topbar nav { display: flex; align-items: center; gap: clamp(17px, 3vw, 42px); }
 .photo-topbar nav a, .photo-view-toggle { color: #ccc2b2; font-size: 11px; letter-spacing: .08em; transition: color .2s ease; }
 .photo-topbar nav a:hover, .photo-view-toggle:hover { color: var(--amber); }
+.photo-header-actions { display: flex; align-items: center; gap: 10px; }
+.photo-portfolio-switch { display: inline-flex; align-items: center; gap: 7px; padding: 10px 13px; border: 1px solid #e8a83866; border-radius: 99px; color: var(--amber); background: #e8a8380a; font-size: 10px; letter-spacing: .06em; transition: background .2s ease, border-color .2s ease; }
+.photo-portfolio-switch:hover { border-color: var(--amber); background: #e8a8381a; }
 .photo-view-toggle { padding: 10px 15px; border: 1px solid #f2e9d82b; border-radius: 99px; background: #ffffff06; cursor: pointer; }
 .photo-journey { position: relative; z-index: 2; }
 .photo-section { min-height: 88svh; padding: 140px clamp(22px, 8vw, 130px) 95px; position: relative; scroll-margin-top: 25px; }
@@ -39,6 +42,7 @@ a { color: inherit; text-decoration: none; }
 .photo-hero h1 { max-width: 940px; margin: 20px 0 22px; color: var(--cream); font: italic 500 clamp(62px, 11vw, 146px)/.94 "Fraunces", serif; letter-spacing: -.065em; }
 .photo-hero-copy > p { max-width: 540px; color: #c5b9a7; font-size: clamp(16px, 2vw, 21px); line-height: 1.7; }
 .photo-scroll-cue { display: inline-flex; gap: 10px; align-items: center; margin-top: 65px; color: #b7a995; font-size: 11px; letter-spacing: .15em; text-transform: uppercase; }
+.photo-hero-media-trigger { position: absolute; z-index: 2; right: 24px; bottom: 24px; width: auto; padding: 9px 13px; border: 1px solid #f2e9d866; color: var(--cream); background: #0b0907a8; font-size: 10px; }
 .hero-asset-preload { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .photo-section-heading { width: min(100%, 1200px); margin: 0 auto 34px; }
 .photo-section-heading h2, .about-photo-copy h2 { margin: 13px 0 0; color: var(--cream); font: italic 500 clamp(45px, 7vw, 82px)/1.05 "Fraunces", serif; letter-spacing: -.045em; }
@@ -55,7 +59,14 @@ a { color: inherit; text-decoration: none; }
 .story-row h3 { margin: 12px 0; color: var(--cream); font: italic 500 clamp(27px, 4vw, 43px)/1.1 "Fraunces", serif; }
 .story-row p { margin: 0; color: #b9ae9d; font-size: 13px; line-height: 1.8; }
 .showreel-frame { width: min(100%, 1200px); margin: 0 auto; border: 1px solid #e8a83836; background: #090705; box-shadow: 0 20px 80px #00000078; }
+.showreel-frame { position: relative; }
 .showreel-frame video { display: block; width: 100%; max-height: 78vh; aspect-ratio: 16 / 9; object-fit: contain; }
+.showreel-view-trigger { position: absolute; top: 12px; right: 12px; display: inline-flex; width: auto; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #f2e9d866; color: var(--cream); background: #0b0907d9; font-size: 10px; }
+.showreel-embed { aspect-ratio: 16 / 9; overflow: hidden; }
+.showreel-embed-trigger { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: radial-gradient(ellipse at center, #26180d, #090705); }
+.showreel-embed-trigger::before { position: absolute; z-index: 1; content: ""; inset: 0; background: #09070566; }
+.showreel-embed-trigger img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.showreel-embed-trigger > span { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 9px; padding: 12px 17px; border: 1px solid #f2e9d899; color: var(--cream); background: #0b0907c9; font-size: 11px; }
 .video-grid { width: min(100%, 1200px); margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .video-card { position: relative; min-height: 230px; aspect-ratio: 16 / 9; overflow: hidden; background: #1a130c; }
 .video-card::after { position: absolute; content: ""; inset: 35% 0 0; background: linear-gradient(transparent, #080604d9); }
@@ -67,6 +78,7 @@ a { color: inherit; text-decoration: none; }
 .clients-section { padding: 55px clamp(22px, 8vw, 130px); border-block: 1px solid #f2e9d812; background: #ffffff03; text-align: center; }
 .client-track { width: min(100%, 1200px); margin: 32px auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; align-items: center; }
 .client-track > div { color: #bdb1a0; font: italic 500 20px "Fraunces", serif; }
+.client-track .media-trigger { width: auto; }
 .client-track img { display: block; max-width: 150px; max-height: 46px; object-fit: contain; filter: grayscale(1) brightness(1.6); opacity: .8; }
 .about-photo-copy { width: min(100%, 1060px); margin: 0 auto; display: grid; grid-template-columns: minmax(220px, .8fr) 1.2fr; gap: clamp(26px, 5vw, 68px); align-items: center; }
 .about-photo-copy > img { width: 100%; max-height: 550px; object-fit: cover; filter: saturate(.8); }
@@ -87,6 +99,11 @@ a { color: inherit; text-decoration: none; }
 .photo-button-fill { border: 1px solid var(--amber); color: #150f07; background: var(--amber); cursor: pointer; }
 .photo-button:disabled { opacity: .6; cursor: wait; }
 .photo-contact-meta { width: min(100%, 850px); margin: 23px auto 0; display: flex; flex-wrap: wrap; gap: 22px; color: #a99d8d; font-size: 11px; }
+.photo-contact-meta.site-contact-details { align-items: center; gap: 15px 22px; }
+.site-contact-details > a, .site-contact-location { display: inline-flex; align-items: center; gap: 7px; color: inherit; }
+.site-contact-details > a:hover, .site-contact-socials a:hover { color: var(--amber); }
+.site-contact-details svg { flex: 0 0 auto; color: var(--amber); }
+.site-contact-socials { display: flex; flex-wrap: wrap; gap: 14px; }
 .photo-footer { position: relative; z-index: 2; min-height: 78px; padding: 25px clamp(22px, 5vw, 84px); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; border-top: 1px solid #f2e9d812; color: #8d8171; font-size: 10px; text-transform: capitalize; }
 .photo-footer > div { display: flex; gap: 16px; }
 .photo-footer a:hover { color: var(--amber); }
@@ -113,6 +130,8 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 760px) {
   .photo-topbar { height: 66px; padding: 0 17px; }
   .photo-topbar nav { display: none; }
+  .photo-header-actions { gap: 6px; }
+  .photo-portfolio-switch, .photo-view-toggle { padding: 8px 9px; font-size: 9px; white-space: nowrap; }
   .photo-section { min-height: auto; padding: 105px 19px 60px; }
   .photo-hero { min-height: 95svh; padding-top: 145px; }
   .photo-hero h1 { font-size: clamp(62px, 17vw, 104px); }

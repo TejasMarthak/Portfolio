@@ -2,11 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { useReducedMotion } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
 import Lenis from 'lenis';
 import { api } from './api';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
 import Preloader from './components/Preloader';
+import '../../shared/media-viewer.css';
 import './styles.css';
 
 const Darkroom = lazy(() => import('./scene/Darkroom'));
@@ -40,6 +42,8 @@ export default function App() {
   const content = useMemo(() => readData(contentQuery.data), [contentQuery.data]);
   const settings = useMemo(() => readData(settingsQuery.data), [settingsQuery.data]);
   const hasContent = hasPublishedContent(content);
+  const proPortfolioUrl = settings.photoSite?.crossLinkToPro ||
+    (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5173' : '');
 
   useEffect(() => {
     if (!showAsPage && is3DCapable) return undefined;
@@ -57,6 +61,9 @@ export default function App() {
   }, [showAsPage, is3DCapable]);
 
   const seo = content.seo || {};
+  const pageTitle = seo.title || (content.hero?.tagline
+    ? `${content.hero.tagline} | Photography Portfolio`
+    : 'Photography Portfolio');
   const gallerySchema = {
     '@context': 'https://schema.org',
     '@type': 'ImageGallery',
@@ -68,10 +75,10 @@ export default function App() {
   return (
     <div className={`photo-app-shell ${showAsPage || !is3DCapable ? 'photo-page-mode' : 'photo-world-mode'}`}>
       <Helmet>
-        <title>{seo.title || content.hero?.tagline || 'Portfolio'}</title>
+        <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}
         {seo.keywords && <meta name="keywords" content={Array.isArray(seo.keywords) ? seo.keywords.join(', ') : seo.keywords} />}
-        <meta property="og:title" content={seo.title || content.hero?.tagline || ''} />
+        <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={seo.desc || content.hero?.subtitle || ''} />
         {seo.ogImage && <meta property="og:image" content={seo.ogImage} />}
         <link rel="canonical" href={window.location.href.split('#')[0]} />
@@ -96,6 +103,7 @@ export default function App() {
             <p className="photo-kicker">Light field ready</p>
             <h1>Your gallery is waiting for its first frame.</h1>
             <p>Add your hero, photos, and stories in the CMS to publish this gallery.</p>
+            {proPortfolioUrl && <a className="photo-portfolio-switch empty-photo-portfolio-switch" href={proPortfolioUrl}>Open developer portfolio <ArrowUpRight size={14} /></a>}
             <small>The CMS needs Google OAuth credentials in <code>server/.env</code>.</small>
           </div>
         </main>

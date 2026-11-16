@@ -1,6 +1,7 @@
 const express = require('express');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { rateLimits } = require('../middleware/rateLimits');
+const { normalizeWhatsAppPhoneNumber } = require('../utils/whatsappPhoneNumber');
 const {
   startWhatsAppLinking,
   requestWhatsAppPairingCode,
@@ -11,9 +12,20 @@ const {
 
 const router = express.Router();
 
+function validatePairingNumber(req, res, next) {
+  const phoneNumber = normalizeWhatsAppPhoneNumber(req.body?.phoneNumber);
+  if (!phoneNumber) {
+    return res.status(400).json({
+      error: 'Enter a valid international mobile number. Indian numbers need +91 and 10 mobile digits.'
+    });
+  }
+  req.whatsappPhoneNumber = phoneNumber;
+  return next();
+}
+
 router.use(verifyAccess);
 
-router.get('/', (_req, res) => {
+router.get('/', rateLimits.whatsappStatus, (_req, res) => {
   res.set('Cache-Control', 'no-store');
   return res.json({ whatsapp: getWhatsAppStatus() });
 });
@@ -28,9 +40,9 @@ router.post('/connect', verifyCsrf, rateLimits.whatsapp, async (_req, res, next)
   }
 });
 
-router.post('/pairing-code', verifyCsrf, rateLimits.whatsapp, async (req, res, next) => {
+router.post('/pairing-code', verifyCsrf, validatePairingNumber, rateLimits.whatsapp, async (req, res, next) => {
   try {
-    const whatsapp = await requestWhatsAppPairingCode(req.body?.phoneNumber);
+    const whatsapp = await requestWhatsAppPairingCode(req.whatsappPhoneNumber);
     res.set('Cache-Control', 'no-store');
     return res.json({ whatsapp });
   } catch (error) {

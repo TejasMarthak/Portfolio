@@ -1,7 +1,9 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowDown, ArrowUpRight, ExternalLink, Github, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, ExternalLink, FileText, Github, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cloudinaryUrl } from '../api';
+import MediaViewer, { MediaLink, MediaTrigger } from '../../../shared/MediaViewer.jsx';
+import SiteContactDetails, { SocialLinks } from '../../../shared/SiteContactDetails.jsx';
 import ContactForm from './ContactForm';
 
 function Section({ id, title, eyebrow, children, className = '' }) {
@@ -76,18 +78,27 @@ function TypingWords({ words }) {
 function Project({ project }) {
   return (
     <article className="project-card">
-      {project.imageURL && <img src={cloudinaryUrl(project.imageURL, 900)} alt={project.title || ''} loading="lazy" />}
+      {project.imageURL && <MediaTrigger className="project-media-trigger" src={project.imageURL} title={project.title || 'Project image'}><img src={cloudinaryUrl(project.imageURL, 900)} alt={project.title || ''} loading="lazy" /></MediaTrigger>}
       <div className="project-copy">
         <div className="project-heading"><h3>{project.title}</h3>{project.featured && <Sparkles size={16} aria-label="Featured" />}</div>
         <p>{project.desc}</p>
         <ul className="tag-list">{(project.tags || []).map((tag) => <li key={tag}>{tag}</li>)}</ul>
         <div className="project-links">
-          {project.liveURL && <a href={project.liveURL} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Live</a>}
-          {project.githubURL && <a href={project.githubURL} target="_blank" rel="noreferrer"><Github size={15} /> Source</a>}
+          {project.liveURL && <MediaLink href={project.liveURL} title={`${project.title || 'Project'} live media`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Live</MediaLink>}
+          {project.githubURL && <MediaLink href={project.githubURL} title={`${project.title || 'Project'} source`} target="_blank" rel="noreferrer"><Github size={15} /> Source</MediaLink>}
         </div>
       </div>
     </article>
   );
+}
+
+function getSafeExternalUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
 }
 
 export default function Portfolio({ content, settings, showAsPage, setShowAsPage }) {
@@ -95,6 +106,9 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
   const about = content.about || {};
   const hobby = content.hobby || {};
   const seo = content.seo || {};
+  const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
+    (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
+  const resumeUrl = getSafeExternalUrl(content.resume?.fileURL);
   const sections = [
     { id: 'about', label: about.title || 'About' },
     { id: 'skills', label: content.skillsTitle || 'Skills' },
@@ -104,15 +118,19 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
   ];
 
   return (
-    <>
+    <MediaViewer theme="pro">
+      <>
       <header className="topbar">
         <a className="wordmark" href="#home" aria-label={hero.headline || 'Home'}>{hero.headline?.split(' ')[0] || '•'}</a>
         <nav aria-label="Main navigation">
           {sections.map((section) => <a key={section.id} href={`#${section.id}`}>{section.label}</a>)}
         </nav>
-        <button className="view-toggle" type="button" onClick={() => setShowAsPage(!showAsPage)}>
-          {showAsPage ? 'Enter the build plane' : 'View as page'}
-        </button>
+        <div className="header-actions">
+          {photoPortfolioUrl && <a className="portfolio-switch" href={photoPortfolioUrl}>Photo portfolio <ArrowUpRight size={14} /></a>}
+          <button className="view-toggle" type="button" onClick={() => setShowAsPage(!showAsPage)}>
+            {showAsPage ? 'Enter the build plane' : 'View as page'}
+          </button>
+        </div>
       </header>
 
       <main id="journey" className={showAsPage ? 'journey journey-readable' : 'journey'}>
@@ -123,8 +141,9 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
             <p className="hero-subtitle">{hero.subheadline || ''}</p>
             <TypingWords words={hero.typingWords || []} />
             <div className="hero-actions">
-              {hero.cta1?.url && <a className="button button-primary" href={hero.cta1.url}>{hero.cta1.text || ''}<ArrowUpRight size={17} /></a>}
-              {hero.cta2?.url && <a className="button button-quiet" href={hero.cta2.url}>{hero.cta2.text || ''}</a>}
+              {hero.cta1?.url && <MediaLink className="button button-primary" href={hero.cta1.url} title={hero.cta1.text || 'Portfolio media'}>{hero.cta1.text || ''}<ArrowUpRight size={17} /></MediaLink>}
+              {hero.cta2?.url && <MediaLink className="button button-quiet" href={hero.cta2.url} title={hero.cta2.text || 'Portfolio media'}>{hero.cta2.text || ''}</MediaLink>}
+              {resumeUrl && <MediaTrigger className="button button-quiet resume-button" src={resumeUrl} type="pdf" title="Resume"><FileText size={16} />View resume</MediaTrigger>}
             </div>
             <a className="scroll-cue" href="#about"><ArrowDown size={16} /> Scroll to explore</a>
           </motion.div>
@@ -133,7 +152,7 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
 
         <Section id="about" title={about.title || 'About'} eyebrow={about.eyebrow || 'A little context'}>
           <div className="about-layout">
-            {about.photoURL && <img className="about-photo" src={cloudinaryUrl(about.photoURL, 700)} alt={about.photoAlt || ''} loading="lazy" />}
+            {about.photoURL && <MediaTrigger className="about-media-trigger" src={about.photoURL} title={about.photoAlt || 'About photo'}><img className="about-photo" src={cloudinaryUrl(about.photoURL, 700)} alt={about.photoAlt || ''} loading="lazy" /></MediaTrigger>}
             <div className="about-copy">
               <p className="large-copy">{about.bio || ''}</p>
               <div className="stats-row">{(about.stats || []).map((stat) => <div key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span></div>)}</div>
@@ -161,27 +180,25 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
           <div className="hobby-layout">
             {(hobby.photos || []).slice(0, 3).map((photo) => (
               <figure key={photo.publicId || photo.src}>
-                <img src={cloudinaryUrl(photo.src, 850)} alt={photo.caption || ''} loading="lazy" />
+                <MediaTrigger className="hobby-media-trigger" src={photo.src} title={photo.caption || 'Hobby photo'}><img src={cloudinaryUrl(photo.src, 850)} alt={photo.caption || ''} loading="lazy" /></MediaTrigger>
                 {photo.caption && <figcaption>{photo.caption}</figcaption>}
               </figure>
             ))}
-            {hobby.ctaURL && <a className="button button-primary hobby-link" href={hobby.ctaURL}>{hobby.ctaText || ''}<ArrowUpRight size={17} /></a>}
+            {hobby.ctaURL && <MediaLink className="button button-primary hobby-link" href={hobby.ctaURL} title={hobby.ctaText || 'Hobby media'}>{hobby.ctaText || ''}<ArrowUpRight size={17} /></MediaLink>}
           </div>
         </Section>
 
         <Section id="contact" title={content.contactTitle || 'Let’s make something'} eyebrow={content.contactEyebrow || 'Have a good one in mind?'}>
           <ContactForm />
-          <div className="contact-meta">
-            {settings.contact?.email && <a href={`mailto:${settings.contact.email}`}>{settings.contact.email}</a>}
-            {settings.contact?.location && <span>{settings.contact.location}</span>}
-          </div>
+        <SiteContactDetails contact={settings.contact} social={settings.social} className="contact-meta" />
         </Section>
       </main>
       <footer className="site-footer">
         <span>{seo.title || hero.headline || ''}</span>
-        <div>{Object.entries(settings.social || {}).filter(([, value]) => value).map(([name, value]) => <a key={name} href={value} target="_blank" rel="noreferrer">{name}</a>)}</div>
+      <SocialLinks social={settings.social} className="site-footer-socials" />
         {settings.proSite?.crossLinkToPhoto && <a href={settings.proSite.crossLinkToPhoto}>More work <ArrowUpRight size={14} /></a>}
       </footer>
     </>
+    </MediaViewer>
   );
 }

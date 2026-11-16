@@ -2,10 +2,12 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
 import Lenis from 'lenis';
 import { api } from './api';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
+import '../../shared/media-viewer.css';
 import './styles.css';
 
 const BuildPlane = lazy(() => import('./scene/BuildPlane'));
@@ -39,6 +41,8 @@ export default function App() {
   const content = useMemo(() => readData(contentQuery.data), [contentQuery.data]);
   const settings = useMemo(() => readData(settingsQuery.data), [settingsQuery.data]);
   const hasContent = hasPublishedContent(content);
+  const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
+    (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
 
   useEffect(() => {
     if (!showAsPage && is3DCapable) return undefined;
@@ -56,6 +60,9 @@ export default function App() {
   }, [showAsPage, is3DCapable]);
 
   const seo = content.seo || {};
+  const pageTitle = seo.title || (content.hero?.headline
+    ? `${content.hero.headline} | Developer Portfolio`
+    : 'Developer Portfolio');
   const personSchema = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -68,10 +75,10 @@ export default function App() {
   return (
     <div className={`app-shell ${showAsPage || !is3DCapable ? 'page-mode' : 'world-mode'}`}>
       <Helmet>
-        <title>{seo.title || content.hero?.headline || 'Portfolio'}</title>
+        <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}
         {seo.keywords && <meta name="keywords" content={Array.isArray(seo.keywords) ? seo.keywords.join(', ') : seo.keywords} />}
-        <meta property="og:title" content={seo.title || content.hero?.headline || ''} />
+        <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={seo.desc || content.hero?.subheadline || ''} />
         {seo.ogImage && <meta property="og:image" content={seo.ogImage} />}
         <link rel="canonical" href={window.location.href.split('#')[0]} />
@@ -96,6 +103,7 @@ export default function App() {
             <p className="eyebrow"><span />Build plane ready</p>
             <h1>Your portfolio is ready for its story.</h1>
             <p>Add your hero, about, skills, and projects in the CMS to publish your content here.</p>
+            {photoPortfolioUrl && <a className="portfolio-switch empty-portfolio-switch" href={photoPortfolioUrl}>Open photo portfolio <ArrowUpRight size={14} /></a>}
             <a href="#setup">What needs to be configured?</a>
             <small id="setup">The CMS needs Google OAuth credentials in <code>server/.env</code>.</small>
           </div>
