@@ -35,6 +35,7 @@ const rateLimits = {
   general: limiter(15 * 60 * 1000, 100, 'Too many requests', 'general'),
   contact: limiter(60 * 60 * 1000, 5, 'Too many contact requests', 'contact'),
   auth: limiter(60 * 60 * 1000, 10, 'Too many authentication attempts', 'auth'),
+  whatsapp: limiter(60 * 60 * 1000, 5, 'Too many WhatsApp pairing attempts', 'whatsapp'),
   adminWrite: limiter(15 * 60 * 1000, 60, 'Too many changes', 'admin-write'),
   upload: limiter(60 * 60 * 1000, 20, 'Too many uploads', 'upload')
 };

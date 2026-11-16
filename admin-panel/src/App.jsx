@@ -28,7 +28,8 @@ const navigation = [
       { label: 'Skills', path: '/pro/skills' },
       { label: 'Projects', path: '/pro/projects' },
       { label: 'Hobby', path: '/pro/hobby' },
-      { label: 'Resume', path: '/pro/resume' }
+      { label: 'Resume', path: '/pro/resume' },
+      { label: 'SEO & sharing', path: '/pro/seo' }
     ]
   },
   {
@@ -40,7 +41,8 @@ const navigation = [
       { label: 'Showreel', path: '/photo/showreel' },
       { label: 'Videos', path: '/photo/videos' },
       { label: 'Clients', path: '/photo/clients' },
-      { label: 'About', path: '/photo/about' }
+      { label: 'About', path: '/photo/about' },
+      { label: 'SEO & sharing', path: '/photo/seo' }
     ]
   },
   {
@@ -54,8 +56,8 @@ const navigation = [
 ];
 
 const contentTitles = {
-  'pro/hero': 'Hero', 'pro/about': 'About', 'pro/skills': 'Skills', 'pro/projects': 'Projects', 'pro/hobby': 'Hobby', 'pro/resume': 'Resume',
-  'photo/hero': 'Hero', 'photo/gallery': 'Gallery', 'photo/stories': 'Stories', 'photo/showreel': 'Showreel', 'photo/videos': 'Videos', 'photo/clients': 'Clients', 'photo/about': 'About'
+  'pro/hero': 'Hero', 'pro/about': 'About', 'pro/skills': 'Skills', 'pro/projects': 'Projects', 'pro/hobby': 'Hobby', 'pro/resume': 'Resume', 'pro/seo': 'SEO & sharing',
+  'photo/hero': 'Hero', 'photo/gallery': 'Gallery', 'photo/stories': 'Stories', 'photo/showreel': 'Showreel', 'photo/videos': 'Videos', 'photo/clients': 'Clients', 'photo/about': 'About', 'photo/seo': 'SEO & sharing'
 };
 
 function ProtectedRoute() {

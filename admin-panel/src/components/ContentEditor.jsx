@@ -1,37 +1,204 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { ExternalLink, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
 import DropUpload from './DropUpload';
 import ConfirmDialog from './ConfirmDialog';
 
-const editorSchema = z.object({
-  payload: z.string().min(2, 'Enter a JSON object or array').superRefine((value, context) => {
-    try {
-      const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== 'object') context.addIssue({ code: z.ZodIssueCode.custom, message: 'Content must be an object or array' });
-    } catch {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter valid JSON' });
-    }
-  })
-});
+const sectionDefaults = {
+  pro: {
+    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
+    about: { title: '', eyebrow: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', stats: [], tags: [] },
+    skills: [],
+    projects: [],
+    hobby: { title: '', subtitle: '', photos: [], ctaText: '', ctaURL: '' },
+    resume: { fileURL: '', publicId: '', updatedAt: '' },
+    seo: { title: '', desc: '', ogImage: '', keywords: '' }
+  },
+  photo: {
+    hero: { kicker: '', tagline: '', subtitle: '', bgURL: '', bgPublicId: '' },
+    gallery: [],
+    stories: [],
+    showreel: { videoURL: '', videoPublicId: '', poster: '' },
+    videos: [],
+    clients: [],
+    about: { openingLine: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', gear: [], availability: '' },
+    seo: { title: '', desc: '', ogImage: '', keywords: '' }
+  }
+};
 
-function SortableRow({ id, index, onRemove }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className="sort-row">
-      <button type="button" className="sort-handle" aria-label={`Reorder item ${index + 1}`} {...attributes} {...listeners}><GripVertical size={17} /></button>
-      <span>{index + 1}</span><code>{id.replace(/::\d+$/, '')}</code>
-      <button type="button" className="icon-button danger-icon" aria-label={`Remove item ${index + 1}`} onClick={() => onRemove(index)}><Trash2 size={14} /></button>
-    </div>
-  );
+const sectionLabels = {
+  hero: 'Hero content',
+  about: 'About content',
+  skills: 'Skill groups',
+  projects: 'Projects',
+  hobby: 'Hobby content',
+  resume: 'Resume',
+  gallery: 'Gallery photos',
+  stories: 'Stories',
+  showreel: 'Showreel',
+  videos: 'Video projects',
+  clients: 'Clients',
+  seo: 'Search and social previews'
+};
+
+const fieldLabels = {
+  eyebrow: 'Eyebrow', headline: 'Headline', subheadline: 'Subheadline', typingWords: 'Rotating words',
+  cta1: 'Primary button', cta2: 'Secondary button', text: 'Button text', url: 'Link URL',
+  title: 'Title', desc: 'Description', bio: 'Biography', subtitle: 'Subtitle', category: 'Category',
+  items: 'Items', name: 'Name', value: 'Value', label: 'Label', tags: 'Tags',
+  photoURL: 'Photo', photoPublicId: 'Photo asset ID', photoAlt: 'Photo alt text', stats: 'Statistics',
+  src: 'Photo', publicId: 'Asset ID', alt: 'Alt text', aspect: 'Photo shape', order: 'Display order',
+  imageURL: 'Project image', imagePublicId: 'Image asset ID', liveURL: 'Project website URL',
+  githubURL: 'Source-code URL', featured: 'Featured project', story: 'Story text',
+  image: 'Story photo', videoURL: 'Video URL',
+  videoPublicId: 'Video asset ID', thumb: 'Video thumbnail', thumbPublicId: 'Thumbnail asset ID',
+  poster: 'Video poster image', logoURL: 'Logo image', logoPublicId: 'Logo asset ID',
+  bgURL: 'Hero background image', bgPublicId: 'Background asset ID', kicker: 'Small heading',
+  tagline: 'Main heading', openingLine: 'Opening line', availability: 'Availability text',
+  gear: 'Equipment list', photos: 'Photos', ctaText: 'Button text', ctaURL: 'Button link',
+  fileURL: 'Resume file URL', updatedAt: 'Last updated', maintenanceMsg: 'Maintenance message',
+  ogImage: 'Social preview image', keywords: 'Search keywords',
+  crossLinkToPhoto: 'Photography portfolio URL', crossLinkToPro: 'Developer portfolio URL'
+};
+
+function mergeDefaults(defaultValue, currentValue) {
+  if (Array.isArray(defaultValue)) return Array.isArray(currentValue) ? currentValue : defaultValue;
+  if (defaultValue && typeof defaultValue === 'object') {
+    const current = currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue) ? currentValue : {};
+    return Object.fromEntries(Object.keys({ ...defaultValue, ...current }).map((key) => [
+      key,
+      key in defaultValue ? mergeDefaults(defaultValue[key], current[key]) : current[key]
+    ]));
+  }
+  return currentValue ?? defaultValue;
+}
+
+function humanize(value) {
+  return fieldLabels[value] || value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function emptyItem(key, site) {
+  if (key === 'projects') return { id: crypto.randomUUID(), title: '', desc: '', tags: [], category: '', liveURL: '', githubURL: '', imageURL: '', imagePublicId: '', featured: false };
+  if (key === 'skills') return { category: '', items: [{ name: '' }] };
+  if (key === 'gallery') return { id: crypto.randomUUID(), src: '', publicId: '', alt: '', category: '', title: '', aspect: 'portrait' };
+  if (key === 'stories') return { id: crypto.randomUUID(), image: '', imagePublicId: '', title: '', story: '', category: '' };
+  if (key === 'videos') return { id: crypto.randomUUID(), thumb: '', thumbPublicId: '', title: '', category: '', videoURL: '' };
+  if (key === 'clients') return { name: '', logoURL: '', logoPublicId: '' };
+  if (key === 'photos') return { src: '', publicId: '', caption: '' };
+  if (key === 'stats') return { label: '', value: '' };
+  if (key === 'items') return site === 'pro' ? { name: '' } : '';
+  return '';
+}
+
+function uploadFolder(site, section, key) {
+  if (section === 'resume') return 'documents';
+  if (key.toLowerCase().includes('video') || section === 'showreel') return 'photo-videos';
+  return site === 'pro' ? 'pro-portfolio' : 'photo-gallery';
+}
+
+function isMediaField(key) {
+  return /(?:URL|src|image|thumb|poster)$/i.test(key) && !/githubURL|liveURL|ctaURL|crossLink/i.test(key);
+}
+
+function mediaIdField(key) {
+  return {
+    src: 'publicId', image: 'imagePublicId', imageURL: 'imagePublicId', photoURL: 'photoPublicId',
+    bgURL: 'bgPublicId', videoURL: 'videoPublicId', thumb: 'thumbPublicId', poster: 'posterPublicId',
+    logoURL: 'logoPublicId', fileURL: 'publicId'
+  }[key];
+}
+
+function hasSectionContent(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(value && typeof value === 'object' && Object.keys(value).length);
+}
+
+function ObjectFields({ value, path, site, section, onChange, onUpload }) {
+  return <div className="structured-fields">
+    {Object.entries(value).map(([key, fieldValue]) => {
+      const fieldPath = [...path, key];
+      const label = humanize(key);
+      if (Array.isArray(fieldValue)) {
+        return <ArrayField key={fieldPath.join('.')} value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />;
+      }
+      if (fieldValue && typeof fieldValue === 'object') {
+        return <fieldset className="structured-group" key={fieldPath.join('.')}><legend>{label}</legend>
+          <ObjectFields value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />
+        </fieldset>;
+      }
+      const multiline = /bio|description|story|message/i.test(key);
+      return <label className={`structured-field ${multiline ? 'field-wide' : ''}`} key={fieldPath.join('.')}>
+        <span>{label}</span>
+        {typeof fieldValue === 'boolean' ? (
+          <input type="checkbox" checked={fieldValue} onChange={(event) => onChange(fieldPath, event.target.checked)} />
+        ) : multiline ? (
+          <textarea rows={4} value={fieldValue ?? ''} onChange={(event) => onChange(fieldPath, event.target.value)} />
+        ) : (
+          <input type={isMediaField(key) || /URL|url/i.test(key) ? 'url' : 'text'} value={fieldValue ?? ''} onChange={(event) => {
+            onChange(fieldPath, event.target.value);
+            const idField = mediaIdField(key);
+            if (idField) onChange([...fieldPath.slice(0, -1), idField], '');
+          }} placeholder={/URL|url/i.test(key) ? 'https://' : ''} />
+        )}
+        {isMediaField(key) && (
+          <div className="field-upload">
+            {fieldValue && /(?:src|image|thumb|poster|photoURL|bgURL|ogImage|logoURL)$/i.test(key) && (
+              <img className="media-field-preview" src={fieldValue} alt={`${label} preview`} />
+            )}
+            {fieldValue && /videoURL/i.test(key) && (
+              <video className="media-field-preview" src={fieldValue} controls preload="metadata" />
+            )}
+            {fieldValue && (
+              <button type="button" className="button button-muted media-clear-button" onClick={() => {
+                onChange(fieldPath, '');
+                const idField = mediaIdField(key);
+                if (idField) onChange([...fieldPath.slice(0, -1), idField], '');
+              }}><Trash2 size={13} />Remove from section</button>
+            )}
+            <DropUpload folder={uploadFolder(site, section, key)} acceptVideo={/video/i.test(key) || section === 'showreel'} onUploaded={(media) => onUpload(fieldPath, key, media)} />
+          </div>
+        )}
+      </label>;
+    })}
+  </div>;
+}
+
+function ArrayField({ value, path, fieldKey, site, section, onChange, onUpload }) {
+  const key = fieldKey || path[path.length - 1];
+  return <section className="array-field">
+    <div className="array-field-heading"><h3>{humanize(key)}</h3><button type="button" className="button button-muted" onClick={() => onChange(path, [...value, emptyItem(key, site)])}><Plus size={14} />Add {humanize(key).replace(/s$/, '')}</button></div>
+    {!value.length && <p className="array-empty">Nothing added yet.</p>}
+    {value.map((item, index) => {
+      const itemPath = [...path, index];
+      return <article className="array-item" key={item?.id || item?.publicId || `${path.join('.')}-${index}`}>
+        <div className="array-item-heading">
+          <strong>{humanize(key).replace(/s$/, '')} {index + 1}</strong>
+          <div className="array-item-actions">
+            <button type="button" className="icon-button" aria-label={`Move ${humanize(key)} ${index + 1} up`} disabled={index === 0} onClick={() => {
+              const next = [...value];
+              [next[index - 1], next[index]] = [next[index], next[index - 1]];
+              onChange(path, next);
+            }}><ArrowUp size={15} /></button>
+            <button type="button" className="icon-button" aria-label={`Move ${humanize(key)} ${index + 1} down`} disabled={index === value.length - 1} onClick={() => {
+              const next = [...value];
+              [next[index + 1], next[index]] = [next[index], next[index + 1]];
+              onChange(path, next);
+            }}><ArrowDown size={15} /></button>
+            <button type="button" className="icon-button danger-icon" aria-label={`Remove ${humanize(key)} ${index + 1}`} onClick={() => onChange(path, value.filter((_entry, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></button>
+          </div>
+        </div>
+        {item && typeof item === 'object' && !Array.isArray(item) ? (
+          <ObjectFields value={item} path={itemPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />
+        ) : (
+          <label className="structured-field"><span>{humanize(key).replace(/s$/, '')}</span><input value={item ?? ''} onChange={(event) => onChange(itemPath, event.target.value)} /></label>
+        )}
+      </article>;
+    })}
+  </section>;
 }
 
 export default function ContentEditor({ site, section, title }) {
@@ -41,25 +208,16 @@ export default function ContentEditor({ site, section, title }) {
     queryFn: () => api.get(`/api/${site}/content`),
     staleTime: 300000
   });
-  const content = data?.data?.content;
-  const currentValue = content?.[section];
-  const formatted = useMemo(() => JSON.stringify(currentValue ?? (Array.isArray(currentValue) ? [] : {}), null, 2), [currentValue]);
-  const [sortableItems, setSortableItems] = useState([]);
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isDirty } } = useForm({
-    resolver: zodResolver(editorSchema),
-    defaultValues: { payload: formatted }
-  });
-  const payload = watch('payload');
-  const [confirmIndex, setConfirmIndex] = useState(null);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const currentValue = data?.data?.content?.[section];
+  const [draft, setDraft] = useState(sectionDefaults[site][section]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const sectionExists = hasSectionContent(currentValue);
 
   useEffect(() => {
-    reset({ payload: formatted });
-    let parsed;
-    try { parsed = JSON.parse(formatted); } catch { parsed = null; }
-    setSortableItems(Array.isArray(parsed) ? parsed.map((item, index) => `${String(item.id || item.publicId || item.title || item.category || `item-${index + 1}`)}::${index}`) : []);
-  }, [formatted, reset]);
+    if (currentValue !== undefined) setDraft(mergeDefaults(sectionDefaults[site][section], currentValue));
+  }, [currentValue, section, site]);
 
+  const isDirty = !sectionExists || JSON.stringify(draft) !== JSON.stringify(mergeDefaults(sectionDefaults[site][section], currentValue));
   const save = useMutation({
     mutationFn: (body) => api.patch(`/api/${site}/${section}`, body),
     onSuccess: async () => {
@@ -68,83 +226,34 @@ export default function ContentEditor({ site, section, title }) {
     },
     onError: (error) => toast.error(error.response?.data?.error || 'Changes could not be saved.')
   });
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/${site}/${section}`),
+    onSuccess: async () => {
+      setConfirmDelete(false);
+      setDraft(sectionDefaults[site][section]);
+      await queryClient.invalidateQueries({ queryKey: [site] });
+      toast.success(`${title} content deleted.`);
+    },
+    onError: (error) => toast.error(error.response?.data?.error || 'Section content could not be deleted.')
+  });
 
-  function reorder(event) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    try {
-      const parsed = JSON.parse(payload);
-      if (!Array.isArray(parsed)) return;
-      const from = sortableItems.indexOf(String(active.id));
-      const to = sortableItems.indexOf(String(over.id));
-      if (from < 0 || to < 0) return;
-      const nextItems = arrayMove(parsed, from, to);
-      setSortableItems(nextItems.map((item, index) => `${String(item.id || item.publicId || item.title || item.category || `item-${index + 1}`)}::${index}`));
-      setValue('payload', JSON.stringify(nextItems, null, 2), { shouldDirty: true });
-    } catch {
-      toast.error('Fix the JSON before reordering items.');
-    }
+  function updatePath(path, value) {
+    setDraft((current) => {
+      if (!path.length) return value;
+      const next = structuredClone(current);
+      let target = next;
+      for (const segment of path.slice(0, -1)) target = target[segment];
+      target[path[path.length - 1]] = value;
+      return next;
+    });
   }
 
-  function addItem() {
-    try {
-      const parsed = JSON.parse(payload);
-      if (!Array.isArray(parsed)) return;
-      const next = [...parsed, itemTemplate(site, section, parsed.length)];
-      setValue('payload', JSON.stringify(next, null, 2), { shouldDirty: true });
-      setSortableItems(next.map((item, index) => `${String(item.id || item.publicId || item.title || item.category || `item-${index + 1}`)}::${index}`));
-    } catch {
-      toast.error('Fix the JSON before adding an item.');
-    }
+  function applyUpload(path, key, media) {
+    updatePath(path, media.url);
+    const publicIdField = mediaIdField(key);
+    if (publicIdField) updatePath([...path.slice(0, -1), publicIdField], media.publicId);
+    toast.success('Uploaded media added to this field.');
   }
-
-  function removeItem(index) {
-    try {
-      const parsed = JSON.parse(payload);
-      if (!Array.isArray(parsed)) return;
-      const next = parsed.filter((_item, itemIndex) => itemIndex !== index);
-      setValue('payload', JSON.stringify(next, null, 2), { shouldDirty: true });
-      setSortableItems(next.map((item, itemIndex) => `${String(item.id || item.publicId || item.title || item.category || `item-${itemIndex + 1}`)}::${itemIndex}`));
-      setConfirmIndex(null);
-    } catch {
-      toast.error('Fix the JSON before removing an item.');
-    }
-  }
-
-  function clearSection() {
-    setValue('payload', JSON.stringify(Array.isArray(currentValue) ? [] : {}, null, 2), { shouldDirty: true });
-    setSortableItems([]);
-    setConfirmClear(false);
-  }
-
-  function applyUpload(media) {
-    try {
-      const parsed = JSON.parse(payload || '{}');
-      let value;
-      if (section === 'resume') {
-        value = { ...parsed, fileURL: media.url, publicId: media.publicId, updatedAt: new Date().toISOString() };
-      } else if (section === 'showreel') {
-        value = { ...parsed, videoURL: media.url, videoPublicId: media.publicId };
-      } else if (section === 'about') {
-        value = { ...parsed, photoURL: media.url, photoPublicId: media.publicId };
-      } else if (site === 'photo' && section === 'hero') {
-        value = { ...parsed, bgURL: media.url, bgPublicId: media.publicId };
-      } else if (section === 'hobby') {
-        const photos = Array.isArray(parsed.photos) ? parsed.photos : [];
-        value = { ...parsed, photos: [...photos, { src: media.url, publicId: media.publicId, caption: '' }] };
-      } else if (Array.isArray(parsed)) {
-        value = [...parsed, { src: media.url, publicId: media.publicId, resourceType: media.resourceType }];
-      } else {
-        value = { ...parsed, assetURL: media.url, publicId: media.publicId, resourceType: media.resourceType };
-      }
-      setValue('payload', JSON.stringify(value, null, 2), { shouldDirty: true });
-      toast('Uploaded asset details added to the editor.');
-    } catch {
-      toast.error('Fix the JSON before attaching an uploaded asset.');
-    }
-  }
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   if (isPending) return <div className="page-loading">Loading {title.toLowerCase()}…</div>;
   if (isError) return <div className="page-error">Content could not be loaded. Check the API connection.</div>;
@@ -153,46 +262,20 @@ export default function ContentEditor({ site, section, title }) {
     <div className="editor-page">
       <div className="page-heading"><div><p className="eyebrow">{site === 'pro' ? 'Developer portfolio' : 'Photography portfolio'}</p><h1>{title}</h1></div><span className="save-state">{isDirty ? 'Unsaved changes' : 'All changes saved'}</span></div>
       <section className="panel editor-panel">
-        <div className="panel-title"><div><h2>Section content</h2><p>Update this API-managed section. String values appear directly on the live site.</p></div></div>
-        {Array.isArray(currentValue) && (
-          <div className="sort-box">
-            <div className="sort-box-heading"><h3>Items · drag to reorder</h3><div><button type="button" className="button button-muted" onClick={addItem}><Plus size={14} />Add item</button><button type="button" className="button button-danger" onClick={() => setConfirmClear(true)}>Clear all</button></div></div>
-            {sortableItems.length > 0 ? <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}>
-              <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-                {sortableItems.map((item, index) => <SortableRow key={item} id={item} index={index} onRemove={setConfirmIndex} />)}
-              </SortableContext>
-            </DndContext> : <p className="sort-empty">No items yet.</p>}
-          </div>
-        )}
-        <form onSubmit={handleSubmit(({ payload: value }) => save.mutate(JSON.parse(value)))}>
-          <label className="field-label" htmlFor="content-payload">JSON editor</label>
-          <textarea id="content-payload" className={`code-editor ${errors.payload ? 'has-error' : ''}`} spellCheck="false" {...register('payload')} />
-          {errors.payload && <p className="field-error">{errors.payload.message}</p>}
-          <div className="editor-actions"><button type="submit" className="button button-primary" disabled={save.isPending}><Save size={16} />{save.isPending ? 'Saving…' : 'Save changes'}</button><span>Changes publish immediately.</span></div>
+        <div className="panel-title">
+          <div><h2>{sectionLabels[section] || 'Section content'}</h2><p>{sectionExists ? 'Read and edit this section. Add or remove repeatable items, then save your changes.' : 'This section has no content yet. Create it by adding content and saving.'}</p></div>
+          {sectionExists && <button type="button" className="button button-danger" onClick={() => setConfirmDelete(true)} disabled={remove.isPending}><Trash2 size={14} />Delete section</button>}
+        </div>
+        <form onSubmit={(event) => { event.preventDefault(); save.mutate(draft); }}>
+          {Array.isArray(draft) ? (
+            <ArrayField value={draft} path={[]} fieldKey={section} site={site} section={section} onChange={updatePath} onUpload={applyUpload} />
+          ) : (
+            <ObjectFields value={draft} path={[]} site={site} section={section} onChange={updatePath} onUpload={applyUpload} />
+          )}
+          <div className="editor-actions"><button type="submit" className="button button-primary" disabled={save.isPending || remove.isPending || !isDirty}><Save size={16} />{save.isPending ? 'Saving…' : sectionExists ? 'Save changes' : 'Create section'}</button><span>Changes publish when saved.</span></div>
         </form>
-        <div className="upload-append"><DropUpload folder={section === 'resume' ? 'documents' : section === 'videos' || section === 'showreel' ? 'photo-videos' : site === 'pro' ? 'pro-portfolio' : 'photo-gallery'} acceptVideo={section === 'showreel' || section === 'videos'} onUploaded={applyUpload} /></div>
       </section>
-      {section === 'resume' && currentValue?.fileURL && <section className="panel resume-preview"><a href={currentValue.fileURL} target="_blank" rel="noreferrer"><ExternalLink size={15} />Open current resume</a></section>}
-      <section className="panel payload-preview">
-        <div className="panel-title"><div><h2>Preview data</h2><p>Values are stored in the shared content document.</p></div></div>
-        <pre>{payload || '{}'}</pre>
-      </section>
-      {confirmIndex != null && <ConfirmDialog title="Remove this item?" message="The item will be removed from this draft. Save the section to publish the change." onCancel={() => setConfirmIndex(null)} onConfirm={() => removeItem(confirmIndex)} />}
-      {confirmClear && <ConfirmDialog title="Clear this section?" message="This removes every item from the draft. Save the section to publish the change." onCancel={() => setConfirmClear(false)} onConfirm={clearSection} />}
+      {confirmDelete && <ConfirmDialog title={`Delete ${title} content?`} message="This clears the saved content for this section on the live portfolio. You can create it again later." onCancel={() => setConfirmDelete(false)} onConfirm={() => remove.mutate()} busy={remove.isPending} />}
     </div>
   );
-}
-
-function itemTemplate(site, section, index) {
-  const id = crypto.randomUUID();
-  if (site === 'pro' && section === 'skills') return { category: '', items: [], order: index };
-  if (site === 'pro' && section === 'projects') return {
-    id, title: '', desc: '', tags: [], category: '', liveURL: '', githubURL: '',
-    imageURL: '', imagePublicId: '', featured: false, order: index
-  };
-  if (site === 'photo' && section === 'gallery') return { id, src: '', publicId: '', alt: '', category: '', title: '', aspect: 'portrait', order: index };
-  if (site === 'photo' && section === 'stories') return { id, image: '', imagePublicId: '', title: '', story: '', category: '' };
-  if (site === 'photo' && section === 'videos') return { id, thumb: '', thumbPublicId: '', title: '', category: '', videoURL: '' };
-  if (site === 'photo' && section === 'clients') return { name: '', logoURL: '', logoPublicId: '' };
-  return { id };
 }

@@ -12,7 +12,7 @@ async function start() {
   const server = app.listen(port, () => {
     console.log(`Portfolio API listening on ${port}`);
     startKeepAlive().catch((error) =>     console.error('[keep-alive] scheduler failed:', error.code || error.name));
-    startWhatsApp();
+    startWhatsApp().catch((error) => console.error('[whatsapp] startup failed:', error.code || error.name));
   });
   server.on('error', (error) => {
     console.error('HTTP server failed to start:', { name: error.name, code: error.code || 'HTTP_STARTUP_ERROR' });

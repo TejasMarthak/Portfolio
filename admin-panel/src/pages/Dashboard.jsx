@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, BriefcaseBusiness, Images, Mail, Radio } from 'lucide-react';
+import { ArrowUpRight, BriefcaseBusiness, Camera, Images, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import toast from 'react-hot-toast';
@@ -12,6 +12,8 @@ export default function Dashboard() {
   const photo = useQuery({ queryKey: ['photo'], queryFn: () => api.get('/api/photo/content'), staleTime: 300000 });
   const unread = contacts.data?.data?.items?.filter((item) => item.status === 'new').length || 0;
   const config = settings.data?.data?.settings || {};
+  const proUrl = import.meta.env.VITE_PRO_URL || 'http://localhost:5173';
+  const photoUrl = import.meta.env.VITE_PHOTO_URL || 'http://localhost:5174';
   const proCount = pro.data?.data?.content?.projects?.length || 0;
   const photoCount = photo.data?.data?.content?.gallery?.length || 0;
   const updateSettings = useMutation({
@@ -32,7 +34,7 @@ export default function Dashboard() {
         <article className="stat-card"><span className="stat-icon"><Images size={18} /></span><span>Gallery images</span><strong>{photo.isPending ? '—' : photoCount}</strong><Link to="/photo/gallery">Manage gallery <ArrowUpRight size={14} /></Link></article>
       </div>
       <section className="panel dashboard-sites">
-        <div className="panel-title"><div><h2>Published sites</h2><p>Toggle public visibility from shared site settings.</p></div><Radio size={20} /></div>
+        <div className="panel-title dashboard-sites-heading"><div><h2>Published sites</h2><p>Toggle public visibility or open either portfolio.</p></div><div className="dashboard-site-actions"><a className="button button-muted" href={proUrl} target="_blank" rel="noreferrer"><BriefcaseBusiness size={15} />Open developer portfolio<ArrowUpRight size={14} /></a><a className="button button-muted" href={photoUrl} target="_blank" rel="noreferrer"><Camera size={15} />Open photography portfolio<ArrowUpRight size={14} /></a></div></div>
         <div className="site-row"><div><span className="site-dot violet" /><div><strong>Developer portfolio</strong><small>Pro site</small></div></div><button type="button" className={`switch ${config.proSite?.live !== false ? 'switch-on' : ''}`} role="switch" aria-checked={config.proSite?.live !== false} aria-label="Toggle developer portfolio live status" disabled={updateSettings.isPending} onClick={() => updateSettings.mutate({ proSite: { ...config.proSite, live: config.proSite?.live === false } })}><span /></button><span className={`status-pill ${config.proSite?.live === false ? 'status-off' : 'status-on'}`}>{config.proSite?.live === false ? 'Offline' : 'Live'}</span><Link to="/pro/hero">Edit content <ArrowUpRight size={14} /></Link></div>
         <div className="site-row"><div><span className="site-dot amber" /><div><strong>Photography portfolio</strong><small>Photo site</small></div></div><button type="button" className={`switch ${config.photoSite?.live !== false ? 'switch-on' : ''}`} role="switch" aria-checked={config.photoSite?.live !== false} aria-label="Toggle photography portfolio live status" disabled={updateSettings.isPending} onClick={() => updateSettings.mutate({ photoSite: { ...config.photoSite, live: config.photoSite?.live === false } })}><span /></button><span className={`status-pill ${config.photoSite?.live === false ? 'status-off' : 'status-on'}`}>{config.photoSite?.live === false ? 'Offline' : 'Live'}</span><Link to="/photo/hero">Edit content <ArrowUpRight size={14} /></Link></div>
       </section>
