@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /pro-portfolio
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /photo-portfolio
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /admin-panel
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

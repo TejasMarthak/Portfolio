@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["server/src/**/*.js", "pro-portfolio/src/**/*.jsx", "photo-portfolio/src/**/*.jsx", "admin-panel/src/**/*.jsx"]
+}

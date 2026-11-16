@@ -1,0 +1,120 @@
+services:
+  - type: web
+    name: portfolio-api
+    runtime: node
+    buildCommand: npm ci --omit=dev --workspace=@portfolio-system/server --include-workspace-root=false
+    startCommand: node server/server.js
+    healthCheckPath: /ping
+    plan: starter
+    disk:
+      name: whatsapp-auth
+      mountPath: /app/whatsapp-auth
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SERVER_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES
+        value: 7d
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: YOUR_WHATSAPP_JID
+        sync: false
+      - key: PRO_CLIENT_URL
+        sync: false
+      - key: PHOTO_CLIENT_URL
+        sync: false
+      - key: ADMIN_CLIENT_URL
+        sync: false
+
+  - type: static
+    name: pro-portfolio
+    buildCommand: npm ci --workspace=@portfolio-system/pro-portfolio --include-workspace-root=false && npm run build --workspace=@portfolio-system/pro-portfolio
+    publishPath: pro-portfolio/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: portfolio-api
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+
+  - type: static
+    name: photo-portfolio
+    buildCommand: npm ci --workspace=@portfolio-system/photo-portfolio --include-workspace-root=false && npm run build --workspace=@portfolio-system/photo-portfolio
+    publishPath: photo-portfolio/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: portfolio-api
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+
+  - type: static
+    name: admin-panel
+    buildCommand: npm ci --workspace=@portfolio-system/admin-panel --include-workspace-root=false && npm run build --workspace=@portfolio-system/admin-panel
+    publishPath: admin-panel/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: portfolio-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_PRO_URL
+        sync: false
+      - key: VITE_PHOTO_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

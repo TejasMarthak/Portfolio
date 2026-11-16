@@ -1,0 +1,15 @@
+node_modules/
+**/node_modules/
+.turbo/
+dist/
+**/dist/
+coverage/
+**/coverage/
+.env
+.env.*
+!.env.example
+server/whatsapp-auth/
+server/.whatsapp-auth/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,33 @@
+{
+  "name": "portfolio-system",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "server",
+    "pro-portfolio",
+    "photo-portfolio",
+    "admin-panel"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "all": "npm run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "audit": "npm audit --audit-level=high",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "check:all": "npm run audit && npm run lint && npm run test && npm run build",
+    "deploy": "npm run check:all && git push"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.15.0",
+    "globals": "17.14.0",
+    "turbo": "2.11.11"
+  }
+}
