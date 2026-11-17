@@ -58,7 +58,7 @@ Portfolio copy and media are intentionally not seeded with personal information.
 
    The command above requires a configured `server/.env` and a reachable MongoDB instance for the API. For a local MongoDB, set `MONGODB_URI=mongodb://127.0.0.1:27017/portfolio-system`. Set `SERVER_URL=http://localhost:4000` for local development.
 
-   Local development and the deployed sites run independently: opening `http://localhost:5173`, `http://localhost:5174`, or `http://localhost:5175` does not replace or stop the public Render sites. Vite uses the local API at `http://localhost:4000` by default; Render builds inject the deployed API URL through `VITE_API_URL`. Keep a separate development database in `server/.env` so local CMS edits cannot accidentally change production content. To preview current production content locally, copy an approved content snapshot into that development database rather than pointing the local CMS at the production database.
+   Local development and the deployed sites run independently: opening `http://localhost:5173`, `http://localhost:5174`, or `http://localhost:5175` does not replace or stop the public sites. Vite uses the local API at `http://localhost:4000` by default; Vercel builds inject the deployed API URL through `VITE_API_URL`. Keep a separate development database in `server/.env` so local CMS edits cannot accidentally change production content. To preview current production content locally, copy an approved content snapshot into that development database rather than pointing the local CMS at the production database.
 
 9. Visit the CMS and use **Continue with Google**. Set up your real site content, photos, links, metadata, and availability there; the public portfolios read their content from the API. Personal content is not seeded: until you add it, the public sites show a setup notice. The CMS login page explains which OAuth settings are missing if sign-in is not configured.
 
@@ -97,36 +97,29 @@ npm run test
 npm run build
 ```
 
-GitHub Actions runs the audit, lint, tests, and production builds for pull requests and pushes to `main`. After a successful check on `main`, it sends Render deploy-hook requests for all four services. Production dependency versions are pinned; Dependabot checks the npm workspaces and GitHub Actions weekly.
+GitHub Actions runs the audit, lint, tests, and production builds for pull requests and pushes to `main`. Render and Vercel deploy directly from their GitHub integrations; no GitHub deploy-hook secrets are needed. Production dependency versions are pinned; Dependabot checks the npm workspaces and GitHub Actions weekly.
 
-## One-command deployment
+## Deployment: Vercel frontends and Render API
 
-After connecting this repository to Render and creating the four services from `render.yaml`, configure production environment variables and add these four GitHub Actions repository secrets:
+The monorepo stays intact. Create three separate Vercel projects from the same GitHub repository and `main` branch. For all three, set the Root Directory to the repository root (`.`), the Install Command to `npm ci`, and use the matching build command and output directory below. Keeping the repository root as the build context makes the shared `shared/` directory available to every app.
 
-- `RENDER_DEPLOY_HOOK_API`
-- `RENDER_DEPLOY_HOOK_PRO`
-- `RENDER_DEPLOY_HOOK_PHOTO`
-- `RENDER_DEPLOY_HOOK_ADMIN`
+| Vercel project | Build Command | Output Directory |
+| --- | --- | --- |
+| Developer portfolio | `npm run build --workspace=@portfolio-system/pro-portfolio` | `pro-portfolio/dist` |
+| Photography portfolio | `npm run build --workspace=@portfolio-system/photo-portfolio` | `photo-portfolio/dist` |
+| Admin panel | `npm run build --workspace=@portfolio-system/admin-panel` | `admin-panel/dist` |
 
-Create each URL in the corresponding Render service's **Settings → Deploy Hook** section. Do not commit deploy-hook URLs or put them in `.env` or workflow files. In Render, turn off automatic deploys for these services so they deploy only after CI succeeds.
+Set `VITE_API_URL` in each Vercel project to the public Render API URL. In the Admin project, also set `VITE_PRO_URL` and `VITE_PHOTO_URL` to the deployed portfolio URLs.
 
-Deploy future changes from the repository root with:
+Create one Render Web Service from the same repository using the API-only `render.yaml` Blueprint. The service uses the repository root, health check `/ping`, build command `npm ci --omit=dev --workspace=@portfolio-system/server --include-workspace-root=false`, and start command `node server/server.js`. Render's Starter plan is used because the Blueprint includes a persistent disk.
 
-```sh
-npm run deploy
-```
+Configure the API's environment variables in Render: MongoDB, Redis, Google OAuth, `ADMIN_EMAIL`, Cloudinary, optional email/WhatsApp settings, `SERVER_URL`, and the three frontend origins (`PRO_CLIENT_URL`, `PHOTO_CLIENT_URL`, `ADMIN_CLIENT_URL`). Set `GOOGLE_CALLBACK_URL` to `https://<api-domain>/api/auth/google/callback` and add that exact URL to the Google OAuth client. Generate separate JWT secrets of at least 32 characters. Production rate limits and OAuth state require Redis.
 
-This runs the audit, lint, tests, and production builds first. If they pass, it pushes the current branch to its configured upstream. On `main`, GitHub Actions reruns the checks and asks Render to deploy all four services; pull requests run checks but never deploy. The command cannot create the initial Render services or configure production secrets and GitHub repository secrets for you. If the branch has no Git upstream, configure the Git remote and upstream before running it. To start the four local services instead, use `npm run all`.
+For reliable CMS sign-in, give all four services HTTPS custom domains under the same registered domain, for example `dev.example.com`, `photo.example.com`, `admin.example.com`, and `api.example.com`. The API uses `SameSite=Strict` authentication cookies; the default Vercel and Render domains are cross-site and may prevent the Admin browser from sending those cookies. Set the Vercel frontend variables, Render client-origin variables, and OAuth callback to the final custom domains.
 
-## Render deployment
+Enable automatic deployments from `main` in Vercel and Render. A normal push then deploys each Vercel project and the Render API independently, while GitHub Actions only runs the quality checks. To run the checks and push your current branch with the existing shortcut, use `npm run deploy`; a regular `git push origin main` also triggers the platform deployments. To start the four local services, use `npm run all`.
 
-1. Create a Render Blueprint from the repository root using `render.yaml`. The API uses the Render Starter plan because Render persistent disks are not available on the free web-service plan.
-2. Configure the API's unsynced variables (`MONGODB_URI`, `REDIS_URL`, OAuth, Cloudinary, Gmail, WhatsApp, and `ADMIN_EMAIL`) in the Render dashboard.
-3. Deploy the three static sites and copy their final public URLs into the API's `PRO_CLIENT_URL`, `PHOTO_CLIENT_URL`, and `ADMIN_CLIENT_URL` variables. Set `GOOGLE_CALLBACK_URL` to `https://<API-host>/api/auth/google/callback`, add that callback URL to the Google OAuth client, set `SERVER_URL` to `https://<API-host>`, and redeploy.
-4. Set the two admin static-site preview variables `VITE_PRO_URL` and `VITE_PHOTO_URL` to the deployed site URLs.
-5. Enter the real portfolio copy, images, project links, SEO metadata, social links, and cross-links in the CMS before enabling both live switches.
-
-`/ping` is the lightweight Render health check. In production, the API also requests its own `SERVER_URL/ping` every 10 minutes. A self-ping is best-effort and does not guarantee that a free service will never sleep. Optional backup: create an UptimeRobot free HTTP monitor for `https://<API-host>/ping` with a 5-minute interval. WhatsApp state lives in MongoDB; the Render disk is retained for deployment compatibility and future approved local session files.
+Enter the real portfolio copy, images, project links, SEO metadata, social links, and cross-links in the CMS before enabling both live switches. `/ping` is the lightweight Render health check. WhatsApp state is stored in MongoDB; the Render disk is retained for deployment compatibility and future approved local session files.
 
 ## Security and operations notes
 
