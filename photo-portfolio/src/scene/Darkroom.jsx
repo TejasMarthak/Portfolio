@@ -1,76 +1,129 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html, Sparkles, useTexture } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { Maximize2, Minimize2, X } from 'lucide-react';
 import { cloudinaryUrl } from '../api';
 import * as THREE from 'three';
+import { getScenePixelRatio } from '../../../shared/deviceRendering.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
-function CameraRig({ reducedMotion, focusedIndex, photos }) {
-  const { camera } = useThree();
+const CAMERA_FOV = 50;
+
+function cameraDistanceFor(aspect) {
+  const viewHeightAtUnit = 2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
+  return Math.max(6.4, 5.4 / (viewHeightAtUnit * Math.max(aspect, 0.4) * 0.82));
+}
+
+function photoLateralRange(aspect) {
+  const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2) * cameraDistanceFor(aspect);
+  return viewHeight * aspect * (aspect > 1.1 ? 0.12 : 0.08);
+}
+
+function photoPosition(index, aspect = 1.6) {
+  const cameraDistance = cameraDistanceFor(aspect);
+  return [
+    Math.sin(index * 2.1) * photoLateralRange(aspect),
+    Math.sin(index * 0.58) * 0.22,
+    -index * (cameraDistance + 3) - 1.4
+  ];
+}
+
+function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
+  const { camera, size } = useThree();
+  const viewportAspect = size.width / size.height;
+  const cameraDistance = cameraDistanceFor(viewportAspect);
   const progress = useRef({ value: 0 });
   const pushTarget = useRef(null);
-  const points = useMemo(() => [
-    new THREE.Vector3(0, 0.4, 12),
-    new THREE.Vector3(-1, 0.4, 6),
-    new THREE.Vector3(1, 0.4, 0),
-    new THREE.Vector3(-1, 0.4, -6),
-    new THREE.Vector3(1, 0.4, -12),
-    new THREE.Vector3(0, 0.4, -18)
-  ], []);
+  const focusTween = useRef(null);
+  const cameraTarget = useRef(new THREE.Vector3());
+  const lookTarget = useRef(new THREE.Vector3());
 
   useEffect(() => {
     if (reducedMotion) return undefined;
+    const journey = document.getElementById('darkroom-journey');
+    const startTrigger = document.getElementById(startSection) || journey;
+    const endTrigger = document.getElementById('contact') || journey;
+    if (!startTrigger || !endTrigger) return undefined;
     const tween = gsap.to(progress.current, {
       value: 1,
       ease: 'none',
-      scrollTrigger: { trigger: '#darkroom-journey', start: 'top top', end: 'bottom bottom', scrub: 1.2 }
+      scrollTrigger: {
+        trigger: startTrigger,
+        start: () => `top top+=${document.querySelector('.photo-topbar')?.offsetHeight || 78}`,
+        endTrigger,
+        end: () => `top top+=${document.querySelector('.photo-topbar')?.offsetHeight || 78}`,
+        scrub: 1.2,
+        invalidateOnRefresh: true
+      }
     });
+    const resizeObserver = new ResizeObserver(() => ScrollTrigger.refresh());
+    resizeObserver.observe(journey);
     return () => {
+      resizeObserver.disconnect();
       tween.scrollTrigger?.kill();
       tween.kill();
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, startSection]);
 
   useEffect(() => {
     if (focusedIndex == null || !photos[focusedIndex]) {
       pushTarget.current = null;
+      focusTween.current?.kill();
+      focusTween.current = null;
       return;
     }
     const index = focusedIndex;
-    const target = new THREE.Vector3(Math.sin(index * 2.1) * 2.5, (index % 3) * 0.85, -index * 2.2 - 0.2);
+    const target = new THREE.Vector3(...photoPosition(index, viewportAspect));
     pushTarget.current = target;
-    if (!reducedMotion) gsap.to(camera.position, { x: target.x, y: target.y, z: target.z + 2.3, duration: 1.25, ease: 'power3.inOut' });
-  }, [camera, focusedIndex, photos, reducedMotion]);
+    if (!reducedMotion) {
+      focusTween.current?.kill();
+      focusTween.current = gsap.to(camera.position, { x: target.x, y: target.y, z: target.z + cameraDistance, duration: 1.25, ease: 'power3.inOut' });
+    }
+  }, [camera, cameraDistance, focusedIndex, photos, reducedMotion, viewportAspect]);
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     if (focusedIndex != null && pushTarget.current) {
       camera.lookAt(pushTarget.current);
       return;
     }
-    const position = progress.current.value * (points.length - 1);
-    const index = Math.min(Math.floor(position), points.length - 2);
-    const target = points[index].clone().lerp(points[index + 1], position - index);
-    camera.position.lerp(target, reducedMotion ? 1 : 0.065);
-    camera.lookAt(0, 0, camera.position.z - 7);
+    const amount = THREE.MathUtils.clamp(progress.current.value, 0, 1);
+    const lastIndex = Math.max(photos.length - 1, 0);
+    const scaledIndex = amount * lastIndex;
+    const index = Math.min(Math.floor(scaledIndex), lastIndex);
+    const fraction = THREE.MathUtils.smoothstep(scaledIndex - index, 0, 1);
+    const currentPosition = photoPosition(index, viewportAspect);
+    const nextPosition = photoPosition(Math.min(index + 1, lastIndex), viewportAspect);
+    lookTarget.current.set(
+      THREE.MathUtils.lerp(currentPosition[0], nextPosition[0], fraction) * 0.2,
+      THREE.MathUtils.lerp(currentPosition[1], nextPosition[1], fraction),
+      THREE.MathUtils.lerp(currentPosition[2], nextPosition[2], fraction)
+    );
+    const orbit = Math.sin(scaledIndex * Math.PI / 2) * 0.28;
+    cameraTarget.current.set(lookTarget.current.x + orbit, lookTarget.current.y + 0.22, lookTarget.current.z + cameraDistance);
+    camera.position.lerp(cameraTarget.current, reducedMotion ? 1 : 1 - Math.exp(-delta * 3.8));
+    camera.lookAt(lookTarget.current);
   });
 
   return null;
 }
 
-function PhotoPlane({ photo, index, active, onFocus }) {
+function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
   const textureUrl = cloudinaryUrl(photo.src, 1200);
   const texture = useTexture(textureUrl);
-  const mesh = useRef();
-  const x = Math.sin(index * 2.1) * 2.5;
-  const y = (index % 3) * 0.85;
-  const z = -index * 2.2 - 1.4;
+  const group = useRef();
+  const { size } = useThree();
+  const viewportAspect = size.width / size.height;
+  const position = photoPosition(index, viewportAspect);
   const aspect = texture.image?.width && texture.image?.height ? texture.image.width / texture.image.height : 1.4;
-  const width = Math.min(4.2, Math.max(2.4, aspect * 2.15));
+  const fov = THREE.MathUtils.degToRad(CAMERA_FOV);
+  const cameraDistance = cameraDistanceFor(viewportAspect);
+  const frameHeight = 2 * Math.tan(fov / 2) * cameraDistance * 0.82;
+  const frameWidth = frameHeight * viewportAspect * (viewportAspect > 1.1 ? 0.56 : 0.84);
+  const width = Math.min(frameWidth, frameHeight * aspect);
   const height = width / aspect;
 
   useEffect(() => {
@@ -84,30 +137,72 @@ function PhotoPlane({ photo, index, active, onFocus }) {
   }, [texture, textureUrl]);
 
   useFrame(({ clock }) => {
-    if (mesh.current && !active) mesh.current.position.y = Math.sin(clock.elapsedTime * 0.35 + index) * 0.045;
+    if (reducedMotion || !group.current || active) return;
+    const time = clock.elapsedTime;
+    group.current.position.y = position[1] + Math.sin(time * 0.34 + index * 0.9) * 0.065;
+    group.current.rotation.y = Math.sin(time * 0.18 + index) * 0.025;
+    group.current.rotation.z = Math.sin(time * 0.13 + index * 0.7) * 0.012;
+    group.current.scale.setScalar(1 + Math.sin(time * 0.24 + index) * 0.004);
   });
 
   return (
-    <group position={[x, y, z]}>
+    <group ref={group} position={position}>
+      <mesh position={[0, 0, -0.08]}>
+        <planeGeometry args={[width + 0.48, height + 0.48]} />
+        <meshBasicMaterial color="#ff6b4a" transparent opacity={0.055} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, -0.045]}>
+        <planeGeometry args={[width + 0.16, height + 0.16]} />
+        <meshBasicMaterial color="#c58b3d" />
+      </mesh>
       <mesh
-        ref={mesh}
+        position={[0, 0, 0.035]}
         onClick={(event) => { event.stopPropagation(); onFocus(index); }}
         onPointerOver={() => { document.body.style.cursor = 'pointer'; }}
         onPointerOut={() => { document.body.style.cursor = ''; }}
       >
         <planeGeometry args={[width, height]} />
-        <meshStandardMaterial map={texture} emissive="#6c3e1b" emissiveMap={texture} emissiveIntensity={0.19} roughness={0.78} />
+        <meshBasicMaterial map={texture} color="#fff3dc" toneMapped={false} />
       </mesh>
-      {(photo.title || photo.category) && (
-        <Html position={[-width / 2, -height / 2 - 0.24, 0]} transform distanceFactor={10} className="photo-scene-label">
-          <span>{photo.title || photo.category}</span>
-        </Html>
-      )}
+      <mesh raycast={() => null} position={[0, 0, 0.05]} renderOrder={2}>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial color="#e8a838" transparent opacity={0.12} depthWrite={false} blending={THREE.MultiplyBlending} />
+      </mesh>
     </group>
   );
 }
 
-function Scene({ photos, reducedMotion, focusedIndex, setFocusedIndex }) {
+function LightShafts({ reducedMotion, photoCount }) {
+  const { size } = useThree();
+  const viewportAspect = size.width / size.height;
+  const refs = useRef([]);
+  const shafts = useMemo(() => {
+    const count = Math.min(24, Math.max(3, Math.ceil(photoCount / 3)));
+    const lastZ = photoCount ? photoPosition(photoCount - 1, viewportAspect)[2] : -44;
+    return Array.from({ length: count }, (_value, index) => ({
+      position: [index % 2 ? 5 : -5, 4.5, -12 + ((lastZ + 12) * index) / (count - 1)],
+      rotation: [0, 0, index % 2 ? 0.2 : -0.2],
+      color: index % 3 === 1 ? '#ff6b4a' : '#e8a838'
+    }));
+  }, [photoCount, viewportAspect]);
+
+  useFrame(({ clock }) => {
+    refs.current.forEach((shaft, index) => {
+      if (!shaft || reducedMotion) return;
+      shaft.material.opacity = 0.045 + (Math.sin(clock.elapsedTime * 0.35 + index * 1.7) + 1) * 0.012;
+      shaft.rotation.z = shafts[index].rotation[2] + Math.sin(clock.elapsedTime * 0.12 + index) * 0.035;
+    });
+  });
+
+  return shafts.map((shaft, index) => (
+    <mesh key={shaft.position[2]} ref={(node) => { refs.current[index] = node; }} position={shaft.position} rotation={shaft.rotation}>
+      <cylinderGeometry args={[0.08, 2.8, 15, 24, 1, true]} />
+      <meshBasicMaterial color={shaft.color} transparent opacity={0.055} depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+    </mesh>
+  ));
+}
+
+function Scene({ photos, reducedMotion, focusedIndex, setFocusedIndex, startSection }) {
   return (
     <>
       <color attach="background" args={['#0b0907']} />
@@ -115,24 +210,25 @@ function Scene({ photos, reducedMotion, focusedIndex, setFocusedIndex }) {
       <ambientLight intensity={0.8} color="#f4d0a0" />
       <spotLight position={[-6, 8, 2]} angle={0.35} penumbra={0.8} intensity={50} color="#e8a838" />
       <pointLight position={[6, 0, -10]} intensity={16} color="#ff6b4a" distance={22} />
-      <Sparkles count={140} scale={[18, 8, 38]} size={2.2} speed={reducedMotion ? 0 : 0.13} opacity={0.48} color="#e8a838" />
+      <LightShafts reducedMotion={reducedMotion} photoCount={photos.length} />
       {photos.map((photo, index) => (
         <Suspense key={photo.id || photo.publicId || photo.src} fallback={(
-          <mesh position={[Math.sin(index * 2.1) * 2.5, (index % 3) * 0.85, -index * 2.2 - 1.4]}>
-            <planeGeometry args={[2.8, 2]} />
+          <mesh position={photoPosition(index)}>
+            <planeGeometry args={[2.5, 3.5]} />
             <meshBasicMaterial color="#372418" />
           </mesh>
         )}>
-          <PhotoPlane photo={photo} index={index} active={focusedIndex === index} onFocus={setFocusedIndex} />
+          <PhotoPlane photo={photo} index={index} active={focusedIndex === index} onFocus={setFocusedIndex} reducedMotion={reducedMotion} />
         </Suspense>
       ))}
-      <CameraRig reducedMotion={reducedMotion} focusedIndex={focusedIndex} photos={photos} />
+      <CameraRig reducedMotion={reducedMotion} focusedIndex={focusedIndex} photos={photos} startSection={startSection} />
     </>
   );
 }
 
-export default function Darkroom({ photos = [], reducedMotion }) {
+export default function Darkroom({ photos = [], reducedMotion, startSection }) {
   const [focusedIndex, setFocusedIndex] = useState(null);
+  const [fitPhotoToScreen, setFitPhotoToScreen] = useState(false);
   const visiblePhotos = useMemo(() => photos.filter((photo) => photo.src), [photos]);
 
   useEffect(() => {
@@ -146,24 +242,26 @@ export default function Darkroom({ photos = [], reducedMotion }) {
 
   return (
     <>
-      <Canvas camera={{ position: [0, 0.4, 12], fov: 50 }} dpr={[1, Math.min(window.devicePixelRatio || 1, 1.5)]} gl={{ antialias: false, powerPreference: 'high-performance' }} onPointerMissed={() => setFocusedIndex(null)}>
+      <Canvas camera={{ position: [0, 0, 8], fov: CAMERA_FOV }} dpr={[1, getScenePixelRatio()]} frameloop={reducedMotion ? 'demand' : 'always'} gl={{ antialias: false, powerPreference: 'high-performance' }} onPointerMissed={() => setFocusedIndex(null)}>
         <Suspense fallback={<mesh><planeGeometry args={[3, 2]} /><meshBasicMaterial color="#372418" /></mesh>}>
-          <Scene photos={visiblePhotos} reducedMotion={reducedMotion} focusedIndex={focusedIndex} setFocusedIndex={setFocusedIndex} />
+          <Scene photos={visiblePhotos} reducedMotion={reducedMotion} focusedIndex={focusedIndex} setFocusedIndex={setFocusedIndex} startSection={startSection} />
         </Suspense>
       </Canvas>
       <AnimatePresence>
         {focusedIndex != null && visiblePhotos[focusedIndex] && (
-          <motion.div className="photo-focus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-label={visiblePhotos[focusedIndex].title || 'Photograph'} onClick={() => setFocusedIndex(null)}>
+          <motion.div className={`photo-focus ${fitPhotoToScreen ? 'photo-focus-fit' : ''}`} initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} role="dialog" aria-modal="true" aria-label={visiblePhotos[focusedIndex].title || 'Photograph'} onClick={() => setFocusedIndex(null)}>
+            <button type="button" className="photo-focus-fit-toggle" aria-label={fitPhotoToScreen ? 'Restore image margins' : 'Fit photo to screen'} aria-pressed={fitPhotoToScreen} onClick={(event) => { event.stopPropagation(); setFitPhotoToScreen(!fitPhotoToScreen); }}>
+              {fitPhotoToScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
             <button type="button" className="photo-focus-close" aria-label="Close image" onClick={() => setFocusedIndex(null)}><X size={20} /></button>
             <motion.img
-              src={visiblePhotos[focusedIndex].src}
+              src={cloudinaryUrl(visiblePhotos[focusedIndex].src, 2000)}
               alt={visiblePhotos[focusedIndex].alt || visiblePhotos[focusedIndex].title || ''}
-              initial={{ scale: 0.92, filter: 'blur(10px)' }}
+              initial={reducedMotion ? false : { scale: 0.92, filter: 'blur(10px)' }}
               animate={{ scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: reducedMotion ? 0 : 0.6 }}
               onClick={(event) => event.stopPropagation()}
             />
-            {visiblePhotos[focusedIndex].title && <p>{visiblePhotos[focusedIndex].title}</p>}
           </motion.div>
         )}
       </AnimatePresence>

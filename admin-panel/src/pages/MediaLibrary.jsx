@@ -19,8 +19,12 @@ export default function MediaLibrary() {
     mutationFn: (id) => api.delete(`/api/media/${id}`),
     onSuccess: async () => {
       setPendingDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Media deleted.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['media'] }),
+        queryClient.invalidateQueries({ queryKey: ['pro'] }),
+        queryClient.invalidateQueries({ queryKey: ['photo'] })
+      ]);
+      toast.success('Media and all portfolio references deleted.');
     },
     onError: () => toast.error('The media item could not be deleted.')
   });
@@ -54,7 +58,7 @@ export default function MediaLibrary() {
         ))}</div>
       )}
       {!query.isPending && !query.isError && !query.data?.data?.items?.length && <p className="empty-state panel">Your media library is empty. Upload an image, video, or document to get started.</p>}
-      {pendingDelete && <ConfirmDialog title="Delete media?" message="The asset will be removed from Cloudinary and the media library." onCancel={() => setPendingDelete(null)} onConfirm={() => remove.mutate(pendingDelete._id)} busy={remove.isPending} />}
+      {pendingDelete && <ConfirmDialog title="Delete media everywhere?" message="This permanently deletes the Cloudinary asset, removes it from the media library, and clears its references from both portfolios." onCancel={() => setPendingDelete(null)} onConfirm={() => remove.mutate(pendingDelete._id)} busy={remove.isPending} />}
     </div>
   );
 }

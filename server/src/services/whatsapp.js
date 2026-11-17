@@ -23,7 +23,7 @@ let registeredSession = false;
 let logoutWarning = false;
 let connectionError = '';
 const maxReconnectDelay = 60000;
-const socketOpenTimeoutMs = 15000;
+const socketOpenTimeoutMs = 30000;
 
 function clearSocketStartupTimer() {
   if (!socketStartupTimer) return;
@@ -269,6 +269,10 @@ async function requestWhatsAppPairingCode(phoneNumber) {
   }
   try {
     await waitForSocketOpen(currentSocket);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (socket !== currentSocket || connectionStatus === 'error' || connectionStatus === 'disconnected') {
+      throw new Error('WhatsApp connection closed before pairing code generation');
+    }
     const code = await currentSocket.requestPairingCode(normalizedNumber);
     pairingCode = code;
     connectionStatus = 'pairing-code';

@@ -5,9 +5,10 @@ const photoContentSchema = new mongoose.Schema({
   hero: { type: mongoose.Schema.Types.Mixed, default: {} },
   gallery: { type: [mongoose.Schema.Types.Mixed], default: [] },
   stories: { type: [mongoose.Schema.Types.Mixed], default: [] },
-  showreel: { type: mongoose.Schema.Types.Mixed, default: {} },
+  reels: { type: [mongoose.Schema.Types.Mixed], default: [] },
   videos: { type: [mongoose.Schema.Types.Mixed], default: [] },
   clients: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  categories: { type: mongoose.Schema.Types.Mixed, default: { gallery: [], stories: [], reels: [], videos: [] } },
   about: { type: mongoose.Schema.Types.Mixed, default: {} },
   seo: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true, minimize: false });

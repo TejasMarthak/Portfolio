@@ -26,7 +26,7 @@ export default function WhatsAppConnection() {
     onError: (error) => toast.error(error.response?.data?.error || 'Could not start WhatsApp linking.')
   });
   const connectPhone = useMutation({
-    mutationFn: (number) => api.post('/api/whatsapp/pairing-code', { phoneNumber: number }),
+    mutationFn: (number) => api.post('/api/whatsapp/pairing-code', { phoneNumber: number }, { timeout: 45000 }),
     onSuccess: async (response) => {
       setPairingCode(response.data.whatsapp.pairingCode || '');
       await queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });

@@ -4,6 +4,7 @@ import { Html, Line, Stars } from '@react-three/drei';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
+import { getScenePixelRatio } from '../../../shared/deviceRendering.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -119,7 +120,7 @@ function World({ content, reducedMotion }) {
 
 export default function BuildPlane({ content, reducedMotion }) {
   return (
-    <Canvas camera={{ position: [0, 1, 11], fov: 58 }} dpr={[1, Math.min(window.devicePixelRatio || 1, 1.5)]} gl={{ antialias: false, powerPreference: 'high-performance' }}>
+    <Canvas camera={{ position: [0, 1, 11], fov: 58 }} dpr={[1, getScenePixelRatio()]} frameloop={reducedMotion ? 'demand' : 'always'} gl={{ antialias: false, powerPreference: 'high-performance' }}>
       <Suspense fallback={<mesh><icosahedronGeometry args={[0.6, 1]} /><meshBasicMaterial color="#7c5cff" wireframe /></mesh>}>
         <World content={content} reducedMotion={reducedMotion} />
       </Suspense>

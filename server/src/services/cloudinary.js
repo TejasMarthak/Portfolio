@@ -7,23 +7,19 @@ cloudinary.config({
   secure: true
 });
 
-function uploadToCloudinary(buffer, mimetype, folder) {
-  const resourceType = mimetype.startsWith('video/') ? 'video' : mimetype === 'application/pdf' ? 'raw' : 'image';
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({
-      folder,
-      resource_type: resourceType,
-      transformation: resourceType === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : undefined
-    }, (error, result) => {
-      if (error) return reject(error);
-      return resolve({ ...result, resourceType });
-    });
-    stream.end(buffer);
-  });
+function uploadToCloudinaryStream({ folder, publicId, resourceType }, callback) {
+  const cloudinaryResourceType = resourceType === 'document' ? 'raw' : resourceType;
+  return cloudinary.uploader.upload_chunked_stream({
+    folder,
+    public_id: publicId,
+    resource_type: cloudinaryResourceType,
+    chunk_size: 20 * 1024 * 1024,
+    transformation: resourceType === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : undefined
+  }, callback);
 }
 
 async function deleteFromCloudinary(publicId, resourceType = 'image') {
-  return cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+  return cloudinary.uploader.destroy(publicId, { resource_type: resourceType, invalidate: true });
 }
 
-module.exports = { uploadToCloudinary, deleteFromCloudinary };
+module.exports = { uploadToCloudinaryStream, deleteFromCloudinary };

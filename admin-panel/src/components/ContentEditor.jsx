@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
 import DropUpload from './DropUpload';
@@ -20,8 +20,9 @@ const sectionDefaults = {
     hero: { kicker: '', tagline: '', subtitle: '', bgURL: '', bgPublicId: '' },
     gallery: [],
     stories: [],
-    showreel: { videoURL: '', videoPublicId: '', poster: '' },
+    reels: [],
     videos: [],
+    categories: { gallery: [], stories: [], reels: [], videos: [] },
     clients: [],
     about: { openingLine: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', gear: [], availability: '' },
     seo: { title: '', desc: '', ogImage: '', keywords: '' }
@@ -37,8 +38,9 @@ const sectionLabels = {
   resume: 'Resume',
   gallery: 'Gallery photos',
   stories: 'Stories',
-  showreel: 'Showreel',
+  reels: 'Reels',
   videos: 'Video projects',
+  categories: 'Photo categories',
   clients: 'Clients',
   seo: 'Search and social previews'
 };
@@ -48,8 +50,8 @@ const fieldLabels = {
   cta1: 'Primary button', cta2: 'Secondary button', text: 'Button text', url: 'Link URL',
   title: 'Title', desc: 'Description', bio: 'Biography', subtitle: 'Subtitle', category: 'Category',
   items: 'Items', name: 'Name', value: 'Value', label: 'Label', tags: 'Tags',
-  photoURL: 'Photo', photoPublicId: 'Photo asset ID', photoAlt: 'Photo alt text', stats: 'Statistics',
-  src: 'Photo', publicId: 'Asset ID', alt: 'Alt text', aspect: 'Photo shape', order: 'Display order',
+  photoURL: 'Photo', photoPublicId: 'Photo asset ID',   photoAlt: 'Photo alt text', stats: 'Statistics',
+  src: 'Photo', publicId: 'Asset ID', alt: 'Alt text',
   imageURL: 'Project image', imagePublicId: 'Image asset ID', liveURL: 'Project website URL',
   githubURL: 'Source-code URL', featured: 'Featured project', story: 'Story text',
   image: 'Story photo', videoURL: 'Video URL',
@@ -82,12 +84,12 @@ function humanize(value) {
 }
 
 function emptyItem(key, site) {
-  if (key === 'projects') return { id: crypto.randomUUID(), title: '', desc: '', tags: [], category: '', liveURL: '', githubURL: '', imageURL: '', imagePublicId: '', featured: false };
+  if (key === 'projects') return { id: crypto.randomUUID(), title: '', desc: '', tags: [], skills: [], category: '', liveURL: '', githubURL: '', imageURL: '', imagePublicId: '', featured: false };
   if (key === 'skills') return { category: '', items: [{ name: '' }] };
-  if (key === 'gallery') return { id: crypto.randomUUID(), src: '', publicId: '', alt: '', category: '', title: '', aspect: 'portrait' };
+  if (key === 'gallery') return { id: crypto.randomUUID(), src: '', publicId: '', alt: '', category: '', title: '' };
   if (key === 'stories') return { id: crypto.randomUUID(), image: '', imagePublicId: '', title: '', story: '', category: '' };
-  if (key === 'videos') return { id: crypto.randomUUID(), thumb: '', thumbPublicId: '', title: '', category: '', videoURL: '' };
-  if (key === 'clients') return { name: '', logoURL: '', logoPublicId: '' };
+  if (key === 'reels' || key === 'videos') return { id: crypto.randomUUID(), thumb: '', thumbPublicId: '', title: '', category: '', videoURL: '', videoPublicId: '' };
+  if (key === 'clients') return { id: crypto.randomUUID(), name: '', logoURL: '', logoPublicId: '' };
   if (key === 'photos') return { src: '', publicId: '', caption: '' };
   if (key === 'stats') return { label: '', value: '' };
   if (key === 'items') return site === 'pro' ? { name: '' } : '';
@@ -96,7 +98,7 @@ function emptyItem(key, site) {
 
 function uploadFolder(site, section, key) {
   if (section === 'resume') return 'documents';
-  if (key.toLowerCase().includes('video') || section === 'showreel') return 'photo-videos';
+  if (key.toLowerCase().includes('video')) return 'photo-videos';
   return site === 'pro' ? 'pro-portfolio' : 'photo-gallery';
 }
 
@@ -117,17 +119,52 @@ function hasSectionContent(value) {
   return Boolean(value && typeof value === 'object' && Object.keys(value).length);
 }
 
-function ObjectFields({ value, path, site, section, onChange, onUpload }) {
-  return <div className="structured-fields">
+function OptionsOrCustomField({ value, options, label, onChange }) {
+  const [customMode, setCustomMode] = useState(false);
+  const isCustom = customMode || Boolean(value && !options.includes(value));
+
+  useEffect(() => {
+    if (value && options.includes(value)) setCustomMode(false);
+  }, [options, value]);
+
+  return <>
+    <select value={isCustom ? '__custom__' : value ?? ''} onChange={(event) => {
+      if (event.target.value === '__custom__') {
+        setCustomMode(true);
+        onChange('');
+      } else {
+        setCustomMode(false);
+        onChange(event.target.value);
+      }
+    }}>
+      <option value="">Select {label.toLowerCase()}</option>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      <option value="__custom__">Add {label.toLowerCase()}…</option>
+    </select>
+    {isCustom && <input type="text" value={value ?? ''} onChange={(event) => onChange(event.target.value)} placeholder={`New ${label.toLowerCase()}`} />}
+  </>;
+}
+
+function ObjectFields({
+  value, path, site, section, onChange, onUpload,
+  categoryOptions = [], skillOptions = [], projectCategoryOptions = [], skillGroupCategoryOptions = []
+}) {
+  const [pendingRemove, setPendingRemove] = useState(null);
+  return <>
+    <div className="structured-fields">
     {Object.entries(value).map(([key, fieldValue]) => {
+      if (key === 'id' || key === 'aspect' || key === 'order' || /publicId$/i.test(key)) return null;
       const fieldPath = [...path, key];
       const label = humanize(key);
       if (Array.isArray(fieldValue)) {
-        return <ArrayField key={fieldPath.join('.')} value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />;
+        if (site === 'pro' && section === 'projects' && key === 'skills') {
+          return <ProjectSkillsDropdown key={fieldPath.join('.')} value={fieldValue} options={skillOptions} onChange={(next) => onChange(fieldPath, next)} />;
+        }
+        return <ArrayField key={fieldPath.join('.')} value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} categoryOptions={categoryOptions} skillOptions={skillOptions} projectCategoryOptions={projectCategoryOptions} skillGroupCategoryOptions={skillGroupCategoryOptions} />;
       }
       if (fieldValue && typeof fieldValue === 'object') {
         return <fieldset className="structured-group" key={fieldPath.join('.')}><legend>{label}</legend>
-          <ObjectFields value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />
+          <ObjectFields value={fieldValue} path={fieldPath} site={site} section={section} onChange={onChange} onUpload={onUpload} categoryOptions={categoryOptions} skillOptions={skillOptions} projectCategoryOptions={projectCategoryOptions} skillGroupCategoryOptions={skillGroupCategoryOptions} />
         </fieldset>;
       }
       const multiline = /bio|description|story|message/i.test(key);
@@ -137,6 +174,16 @@ function ObjectFields({ value, path, site, section, onChange, onUpload }) {
           <input type="checkbox" checked={fieldValue} onChange={(event) => onChange(fieldPath, event.target.checked)} />
         ) : multiline ? (
           <textarea rows={4} value={fieldValue ?? ''} onChange={(event) => onChange(fieldPath, event.target.value)} />
+        ) : site === 'photo' && key === 'category' ? (
+          <select value={fieldValue ?? ''} onChange={(event) => onChange(fieldPath, event.target.value)}>
+            <option value="">Uncategorized</option>
+            {fieldValue && !categoryOptions.includes(fieldValue) && <option value={fieldValue}>{fieldValue} (not in category list)</option>}
+            {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        ) : site === 'pro' && key === 'category' && section === 'projects' ? (
+          <OptionsOrCustomField value={fieldValue} options={projectCategoryOptions} label="Project category" onChange={(next) => onChange(fieldPath, next)} />
+        ) : site === 'pro' && key === 'category' && section === 'skills' ? (
+          <OptionsOrCustomField value={fieldValue} options={skillGroupCategoryOptions} label="Skill group" onChange={(next) => onChange(fieldPath, next)} />
         ) : (
           <input type={isMediaField(key) || /URL|url/i.test(key) ? 'url' : 'text'} value={fieldValue ?? ''} onChange={(event) => {
             onChange(fieldPath, event.target.value);
@@ -153,30 +200,104 @@ function ObjectFields({ value, path, site, section, onChange, onUpload }) {
               <video className="media-field-preview" src={fieldValue} controls preload="metadata" />
             )}
             {fieldValue && (
-              <button type="button" className="button button-muted media-clear-button" onClick={() => {
+            <button type="button" className="button button-muted media-clear-button" onClick={() => setPendingRemove({
+              title: `Remove ${label}?`,
+              message: 'This removes the media from this field after you save the section. To delete the uploaded file and all its references from both portfolios, delete it from the media library.',
+              action: () => {
                 onChange(fieldPath, '');
                 const idField = mediaIdField(key);
                 if (idField) onChange([...fieldPath.slice(0, -1), idField], '');
-              }}><Trash2 size={13} />Remove from section</button>
+              }
+            })}><Trash2 size={13} />Remove from section</button>
             )}
-            <DropUpload folder={uploadFolder(site, section, key)} acceptVideo={/video/i.test(key) || section === 'showreel'} onUploaded={(media) => onUpload(fieldPath, key, media)} />
+            <DropUpload folder={uploadFolder(site, section, key)} acceptVideo={/video/i.test(key)} onUploaded={(media) => onUpload(fieldPath, key, media)} />
           </div>
         )}
       </label>;
     })}
-  </div>;
+    </div>
+    {pendingRemove && <ConfirmDialog
+      title={pendingRemove.title}
+      message={pendingRemove.message}
+      onCancel={() => setPendingRemove(null)}
+      onConfirm={() => { pendingRemove.action(); setPendingRemove(null); }}
+    />}
+  </>;
 }
 
-function ArrayField({ value, path, fieldKey, site, section, onChange, onUpload }) {
+function ProjectSkillsDropdown({ value, options, onChange }) {
+  const selected = Array.isArray(value) ? value : [];
+  const selectedOptions = selected
+    .filter((skill) => !options.some((option) => option.value === skill))
+    .map((skill) => ({ value: skill, label: `${skill} (not in skills list)` }));
+  const availableOptions = [...options, ...selectedOptions];
+
+  return (
+    <fieldset className="skill-select-field">
+      <legend>Project skills</legend>
+      <details>
+        <summary>{selected.length ? `${selected.length} selected` : 'Select skills'}<ChevronDown size={14} /></summary>
+        <div className="skill-select-options">
+          {availableOptions.length ? availableOptions.map((option) => (
+            <label key={option.value}>
+              <input
+                type="checkbox"
+                checked={selected.includes(option.value)}
+                onChange={(event) => onChange(event.target.checked
+                  ? [...selected, option.value]
+                  : selected.filter((skill) => skill !== option.value))}
+              />
+              <span>{option.label}</span>
+            </label>
+          )) : <p>Add skills in Developer portfolio → Skills first.</p>}
+        </div>
+      </details>
+    </fieldset>
+  );
+}
+
+function ArrayField({
+  value, path, fieldKey, site, section, onChange, onUpload,
+  categoryOptions = [], skillOptions = [], projectCategoryOptions = [], skillGroupCategoryOptions = []
+}) {
   const key = fieldKey || path[path.length - 1];
-  return <section className="array-field">
-    <div className="array-field-heading"><h3>{humanize(key)}</h3><button type="button" className="button button-muted" onClick={() => onChange(path, [...value, emptyItem(key, site)])}><Plus size={14} />Add {humanize(key).replace(/s$/, '')}</button></div>
+  const fieldTitle = section === 'categories' ? `${humanize(key)} categories` : humanize(key);
+  const itemTitle = section === 'categories'
+    ? 'Category'
+    : site === 'pro' && section === 'skills' && key === 'items'
+      ? 'Skill'
+      : humanize(key).replace(/s$/, '');
+  const [pendingRemove, setPendingRemove] = useState(null);
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  const collapsible = true;
+
+  function addItem() {
+    const item = section === 'categories' ? '' : emptyItem(key, site);
+    onChange(path, [...value, item]);
+    if (collapsible) setExpandedItemId(item.id ?? `${value.length}`);
+  }
+
+  return <>
+    <section className="array-field">
+    <div className="array-field-heading"><h3>{fieldTitle}</h3><button type="button" className="button button-muted" onClick={addItem}><Plus size={14} />Add {itemTitle.toLowerCase()}</button></div>
     {!value.length && <p className="array-empty">Nothing added yet.</p>}
     {value.map((item, index) => {
       const itemPath = [...path, index];
+      const itemId = item?.id || item?.publicId || `${index}`;
+      const expanded = !collapsible || expandedItemId === itemId;
+      const summary = typeof item === 'string'
+        ? item || 'New item'
+        : item?.title || item?.name || item?.category || item?.alt || item?.videoURL || 'New item';
+      const editableItem = site === 'pro' && section === 'projects' && item && typeof item === 'object'
+        ? { ...item, skills: item.skills || [] }
+        : item;
       return <article className="array-item" key={item?.id || item?.publicId || `${path.join('.')}-${index}`}>
         <div className="array-item-heading">
-          <strong>{humanize(key).replace(/s$/, '')} {index + 1}</strong>
+          {collapsible ? (
+            <button type="button" className="array-item-toggle" aria-expanded={expanded} onClick={() => setExpandedItemId(expanded ? null : itemId)}>
+              <ChevronDown size={15} /><strong>{itemTitle} {index + 1}</strong><span>{summary}</span>
+            </button>
+          ) : <strong>{itemTitle} {index + 1}</strong>}
           <div className="array-item-actions">
             <button type="button" className="icon-button" aria-label={`Move ${humanize(key)} ${index + 1} up`} disabled={index === 0} onClick={() => {
               const next = [...value];
@@ -188,17 +309,27 @@ function ArrayField({ value, path, fieldKey, site, section, onChange, onUpload }
               [next[index + 1], next[index]] = [next[index], next[index + 1]];
               onChange(path, next);
             }}><ArrowDown size={15} /></button>
-            <button type="button" className="icon-button danger-icon" aria-label={`Remove ${humanize(key)} ${index + 1}`} onClick={() => onChange(path, value.filter((_entry, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></button>
+            <button type="button" className="icon-button danger-icon" aria-label={`Remove ${humanize(key)} ${index + 1}`} onClick={() => setPendingRemove(index)}><Trash2 size={15} /></button>
           </div>
         </div>
-        {item && typeof item === 'object' && !Array.isArray(item) ? (
-          <ObjectFields value={item} path={itemPath} site={site} section={section} onChange={onChange} onUpload={onUpload} />
-        ) : (
-          <label className="structured-field"><span>{humanize(key).replace(/s$/, '')}</span><input value={item ?? ''} onChange={(event) => onChange(itemPath, event.target.value)} /></label>
+        {expanded && editableItem && typeof editableItem === 'object' && !Array.isArray(editableItem) ? (
+          <ObjectFields value={editableItem} path={itemPath} site={site} section={section} onChange={onChange} onUpload={onUpload} categoryOptions={categoryOptions} skillOptions={skillOptions} projectCategoryOptions={projectCategoryOptions} skillGroupCategoryOptions={skillGroupCategoryOptions} />
+        ) : expanded && (
+          <label className="structured-field"><span>{itemTitle}</span><input value={item ?? ''} onChange={(event) => onChange(itemPath, event.target.value)} /></label>
         )}
       </article>;
     })}
-  </section>;
+      </section>
+      {pendingRemove !== null && <ConfirmDialog
+        title={`Remove ${itemTitle}?`}
+        message="This permanently removes the item from the saved portfolio after you confirm and save the section."
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          onChange(path, value.filter((_entry, itemIndex) => itemIndex !== pendingRemove));
+          setPendingRemove(null);
+        }}
+      />}
+  </>;
 }
 
 export default function ContentEditor({ site, section, title }) {
@@ -209,7 +340,19 @@ export default function ContentEditor({ site, section, title }) {
     staleTime: 300000
   });
   const currentValue = data?.data?.content?.[section];
+  const categoryOptions = site === 'photo' ? data?.data?.content?.categories?.[section] || [] : [];
+  const skillOptions = site === 'pro'
+    ? [...new Map((data?.data?.content?.skills || []).flatMap((group) => (group.items || [])
+      .filter((skill) => skill.name)
+      .map((skill) => [skill.name, { value: skill.name, label: group.category ? `${group.category} · ${skill.name}` : skill.name }]))).values()]
+    : [];
   const [draft, setDraft] = useState(sectionDefaults[site][section]);
+  const projectCategoryOptions = site === 'pro'
+    ? [...new Set((data?.data?.content?.projects || []).map((project) => project.category).filter(Boolean))]
+    : [];
+  const skillGroupCategoryOptions = site === 'pro'
+    ? [...new Set((data?.data?.content?.skills || []).map((group) => group.category).filter(Boolean))]
+    : [];
   const [confirmDelete, setConfirmDelete] = useState(false);
   const sectionExists = hasSectionContent(currentValue);
 
@@ -268,14 +411,14 @@ export default function ContentEditor({ site, section, title }) {
         </div>
         <form onSubmit={(event) => { event.preventDefault(); save.mutate(draft); }}>
           {Array.isArray(draft) ? (
-            <ArrayField value={draft} path={[]} fieldKey={section} site={site} section={section} onChange={updatePath} onUpload={applyUpload} />
+            <ArrayField value={draft} path={[]} fieldKey={section} site={site} section={section} onChange={updatePath} onUpload={applyUpload} categoryOptions={categoryOptions} skillOptions={skillOptions} projectCategoryOptions={projectCategoryOptions} skillGroupCategoryOptions={skillGroupCategoryOptions} />
           ) : (
-            <ObjectFields value={draft} path={[]} site={site} section={section} onChange={updatePath} onUpload={applyUpload} />
+            <ObjectFields value={draft} path={[]} site={site} section={section} onChange={updatePath} onUpload={applyUpload} categoryOptions={categoryOptions} skillOptions={skillOptions} projectCategoryOptions={projectCategoryOptions} skillGroupCategoryOptions={skillGroupCategoryOptions} />
           )}
           <div className="editor-actions"><button type="submit" className="button button-primary" disabled={save.isPending || remove.isPending || !isDirty}><Save size={16} />{save.isPending ? 'Saving…' : sectionExists ? 'Save changes' : 'Create section'}</button><span>Changes publish when saved.</span></div>
         </form>
       </section>
-      {confirmDelete && <ConfirmDialog title={`Delete ${title} content?`} message="This clears the saved content for this section on the live portfolio. You can create it again later." onCancel={() => setConfirmDelete(false)} onConfirm={() => remove.mutate()} busy={remove.isPending} />}
+      {confirmDelete && <ConfirmDialog title={`Delete ${title} content?`} message="This permanently removes the saved content for this section from the API and live portfolio. Uploaded files remain in the media library until you delete them there." onCancel={() => setConfirmDelete(false)} onConfirm={() => remove.mutate()} busy={remove.isPending} />}
     </div>
   );
 }

@@ -19,7 +19,7 @@ router.get('/', async (_req, res, next) => {
 
 router.patch('/', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (req, res, next) => {
   try {
-    const permitted = ['social', 'contact', 'proSite', 'photoSite', 'analytics'];
+    const permitted = ['social', 'sections', 'contact', 'proSite', 'photoSite', 'analytics'];
     const update = Object.fromEntries(Object.entries(req.body || {})
       .filter(([key]) => permitted.includes(key))
       .map(([key, value]) => [key, sanitize(value)]));

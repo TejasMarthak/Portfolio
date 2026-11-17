@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { useReducedMotion } from 'framer-motion';
@@ -12,13 +12,14 @@ import '../../shared/media-viewer.css';
 import './styles.css';
 
 const Darkroom = lazy(() => import('./scene/Darkroom'));
+const PAGE_TITLE = 'Tejas | Photographer';
 
 function readData(result) {
   return result?.data?.content || result?.data?.settings || {};
 }
 
 function hasPublishedContent(content) {
-  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt']);
+  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt', 'categories']);
   const hasValue = (value) => {
     if (typeof value === 'string') return value.trim().length > 0;
     if (typeof value === 'number' || typeof value === 'boolean') return true;
@@ -36,17 +37,40 @@ function ScenePlaceholder() {
 export default function App() {
   const is3DCapable = useIs3DCapable();
   const reducedMotion = useReducedMotion();
-  const [showAsPage, setShowAsPage] = useState(false);
   const contentQuery = useQuery({ queryKey: ['photo'], queryFn: () => api.get('/api/photo/content'), staleTime: 300000, retry: 1 });
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/api/settings'), staleTime: 300000, retry: 1 });
   const content = useMemo(() => readData(contentQuery.data), [contentQuery.data]);
   const settings = useMemo(() => readData(settingsQuery.data), [settingsQuery.data]);
   const hasContent = hasPublishedContent(content);
+  const scenePhotos = useMemo(() => {
+    const sections = settings.sections?.photo || {};
+    const photos = [];
+    if (sections.gallery !== false) photos.push(...(content.gallery || []).filter((photo) => photo.src));
+    if (sections.stories !== false) {
+      photos.push(...(content.stories || []).filter((story) => story.image).map((story) => ({
+        id: story.id || story.image,
+        src: story.image,
+        title: story.title || 'Story',
+        alt: story.title || ''
+      })));
+    }
+    if (sections.about !== false && content.about?.photoURL) {
+      photos.push({ id: 'about-photo', src: content.about.photoURL, title: content.about.photoAlt || 'About photo', alt: content.about.photoAlt || '' });
+    }
+    return [...new Map(photos.map((photo) => [photo.src, photo])).values()];
+  }, [content, settings.sections?.photo]);
+  const sceneStartSection = useMemo(() => {
+    const sections = settings.sections?.photo || {};
+    if (sections.gallery !== false && content.gallery?.some((photo) => photo.src)) return 'gallery';
+    if (sections.stories !== false && content.stories?.some((story) => story.image)) return 'stories';
+    if (sections.about !== false && content.about?.photoURL) return 'about';
+    return 'darkroom-journey';
+  }, [content, settings.sections?.photo]);
   const proPortfolioUrl = settings.photoSite?.crossLinkToPro ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5173' : '');
 
   useEffect(() => {
-    if (!showAsPage && is3DCapable) return undefined;
+    if (is3DCapable) return undefined;
     const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
     let frame;
     const animate = (time) => {
@@ -58,22 +82,20 @@ export default function App() {
       cancelAnimationFrame(frame);
       lenis.destroy();
     };
-  }, [showAsPage, is3DCapable]);
+  }, [is3DCapable]);
 
   const seo = content.seo || {};
-  const pageTitle = seo.title || (content.hero?.tagline
-    ? `${content.hero.tagline} | Photography Portfolio`
-    : 'Photography Portfolio');
+  const pageTitle = PAGE_TITLE;
   const gallerySchema = {
     '@context': 'https://schema.org',
     '@type': 'ImageGallery',
-    name: seo.title || content.hero?.tagline || '',
+    name: 'Tejas',
     description: seo.desc || content.hero?.subtitle || '',
     image: (content.gallery || []).filter((photo) => photo.src).map((photo) => photo.src)
   };
 
   return (
-    <div className={`photo-app-shell ${showAsPage || !is3DCapable ? 'photo-page-mode' : 'photo-world-mode'}`}>
+    <div className={`photo-app-shell ${is3DCapable ? 'photo-world-mode' : 'photo-page-mode'}`}>
       <Helmet>
         <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}
@@ -84,10 +106,10 @@ export default function App() {
         <link rel="canonical" href={window.location.href.split('#')[0]} />
         <script type="application/ld+json">{JSON.stringify(gallerySchema).replace(/</g, '\\u003c')}</script>
       </Helmet>
-      {!showAsPage && is3DCapable && hasContent && (
+      {is3DCapable && hasContent && scenePhotos.length > 0 && (
         <div className="darkroom-layer">
           <Suspense fallback={<ScenePlaceholder />}>
-            <Darkroom photos={content.gallery || []} reducedMotion={Boolean(reducedMotion)} />
+            <Darkroom photos={scenePhotos} reducedMotion={Boolean(reducedMotion)} startSection={sceneStartSection} />
           </Suspense>
         </div>
       )}
@@ -110,7 +132,7 @@ export default function App() {
       ) : (
         <>
           <Preloader name={content.hero?.tagline || content.about?.openingLine} />
-          <Portfolio content={content} settings={settings} showAsPage={showAsPage || !is3DCapable} canUse3D={is3DCapable} setShowAsPage={setShowAsPage} />
+          <Portfolio content={content} settings={settings} canUse3D={is3DCapable} />
         </>
       )}
     </div>

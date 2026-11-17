@@ -19,11 +19,16 @@ const { getLastPing } = require('./jobs/keepAlive');
 const { redis } = require('./middleware/rateLimits');
 
 const app = express();
-const clientOrigins = [
+const developmentOrigins = process.env.NODE_ENV === 'production' ? [] : [
+  'http://localhost:5173', 'http://localhost:5174',
+  'http://127.0.0.1:5173', 'http://127.0.0.1:5174'
+];
+const clientOrigins = [...new Set([
   process.env.PRO_CLIENT_URL,
   process.env.PHOTO_CLIENT_URL,
-  process.env.ADMIN_CLIENT_URL
-].filter(Boolean);
+  process.env.ADMIN_CLIENT_URL,
+  ...developmentOrigins
+].filter(Boolean))];
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -64,7 +69,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-CSRF-Token']
+  allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'Range', 'If-Range']
 }));
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));

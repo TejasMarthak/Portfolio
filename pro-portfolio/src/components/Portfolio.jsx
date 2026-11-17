@@ -1,9 +1,9 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowDown, ArrowUpRight, ExternalLink, FileText, Github, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, ExternalLink, Github, Menu, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cloudinaryUrl } from '../api';
 import MediaViewer, { MediaLink, MediaTrigger } from '../../../shared/MediaViewer.jsx';
-import SiteContactDetails, { SocialLinks } from '../../../shared/SiteContactDetails.jsx';
+import SiteContactDetails from '../../../shared/SiteContactDetails.jsx';
 import ContactForm from './ContactForm';
 
 function Section({ id, title, eyebrow, children, className = '' }) {
@@ -82,7 +82,7 @@ function Project({ project }) {
       <div className="project-copy">
         <div className="project-heading"><h3>{project.title}</h3>{project.featured && <Sparkles size={16} aria-label="Featured" />}</div>
         <p>{project.desc}</p>
-        <ul className="tag-list">{(project.tags || []).map((tag) => <li key={tag}>{tag}</li>)}</ul>
+        <ul className="tag-list">{[...new Set([...(project.tags || []), ...(project.skills || [])])].map((tag) => <li key={tag}>{tag}</li>)}</ul>
         <div className="project-links">
           {project.liveURL && <MediaLink href={project.liveURL} title={`${project.title || 'Project'} live media`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Live</MediaLink>}
           {project.githubURL && <MediaLink href={project.githubURL} title={`${project.title || 'Project'} source`} target="_blank" rel="noreferrer"><Github size={15} /> Source</MediaLink>}
@@ -92,48 +92,60 @@ function Project({ project }) {
   );
 }
 
-function getSafeExternalUrl(value) {
-  try {
-    const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
-  } catch {
-    return '';
+function hasRenderableContent(value) {
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return value.some(hasRenderableContent);
+  if (value && typeof value === 'object') {
+    return Object.entries(value).some(([key, item]) =>
+      !['_id', 'id', 'updatedAt'].includes(key) && !/publicId$/i.test(key) && hasRenderableContent(item)
+    );
   }
+  return false;
 }
 
-export default function Portfolio({ content, settings, showAsPage, setShowAsPage }) {
+export default function Portfolio({ content, settings, canUse3D }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hero = content.hero || {};
   const about = content.about || {};
   const hobby = content.hobby || {};
-  const seo = content.seo || {};
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
-  const resumeUrl = getSafeExternalUrl(content.resume?.fileURL);
+  const sectionSettings = settings.sections?.pro || {};
+  const isVisible = (id, hasContent) => hasContent && sectionSettings[id] !== false;
+  const aboutVisible = isVisible('about', hasRenderableContent(about));
+  const skillsVisible = isVisible('skills', hasRenderableContent(content.skills));
+  const projectsVisible = isVisible('projects', hasRenderableContent(content.projects));
+  const hobbyVisible = isVisible('hobby', hasRenderableContent(hobby));
+  const contactVisible = sectionSettings.contact !== false;
   const sections = [
-    { id: 'about', label: about.title || 'About' },
-    { id: 'skills', label: content.skillsTitle || 'Skills' },
-    { id: 'projects', label: content.projectsTitle || 'Projects' },
-    { id: 'hobby', label: hobby.title || 'Beyond the code' },
-    { id: 'contact', label: content.contactTitle || 'Contact' }
+    { id: 'home', label: 'Home' },
+    ...(aboutVisible ? [{ id: 'about', label: about.title || 'About' }] : []),
+    ...(skillsVisible ? [{ id: 'skills', label: content.skillsTitle || 'Skills' }] : []),
+    ...(projectsVisible ? [{ id: 'projects', label: content.projectsTitle || 'Projects' }] : []),
+    ...(hobbyVisible ? [{ id: 'hobby', label: hobby.title || 'Beyond the code' }] : []),
+    ...(contactVisible ? [{ id: 'contact', label: content.contactTitle || 'Contact' }] : [])
   ];
+  const firstSection = sections.find(({ id }) => id !== 'home')?.id || 'home';
 
   return (
     <MediaViewer theme="pro">
       <>
-      <header className="topbar">
-        <a className="wordmark" href="#home" aria-label={hero.headline || 'Home'}>{hero.headline?.split(' ')[0] || '•'}</a>
+      <header className={`topbar ${mobileMenuOpen ? 'mobile-nav-open' : ''}`}>
+        <a className="wordmark" href="#home" aria-label="Tejas Marthak home">Tejas Marthak</a>
         <nav aria-label="Main navigation">
-          {sections.map((section) => <a key={section.id} href={`#${section.id}`}>{section.label}</a>)}
+          {sections.map((section) => <a key={section.id} href={`#${section.id}`} onClick={() => setMobileMenuOpen(false)}>{section.label}</a>)}
         </nav>
+        <button className="nav-menu-toggle" type="button" aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
         <div className="header-actions">
           {photoPortfolioUrl && <a className="portfolio-switch" href={photoPortfolioUrl}>Photo portfolio <ArrowUpRight size={14} /></a>}
-          <button className="view-toggle" type="button" onClick={() => setShowAsPage(!showAsPage)}>
-            {showAsPage ? 'Enter the build plane' : 'View as page'}
-          </button>
         </div>
       </header>
 
-      <main id="journey" className={showAsPage ? 'journey journey-readable' : 'journey'}>
+      <main id="journey" className={canUse3D ? 'journey' : 'journey journey-readable'}>
         <section id="home" className="journey-section hero-section" aria-label={hero.headline || 'Portfolio introduction'}>
           <motion.div className="hero-copy" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }}>
             <p className="eyebrow"><span />{hero.eyebrow || 'Independent developer'}</p>
@@ -143,14 +155,13 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
             <div className="hero-actions">
               {hero.cta1?.url && <MediaLink className="button button-primary" href={hero.cta1.url} title={hero.cta1.text || 'Portfolio media'}>{hero.cta1.text || ''}<ArrowUpRight size={17} /></MediaLink>}
               {hero.cta2?.url && <MediaLink className="button button-quiet" href={hero.cta2.url} title={hero.cta2.text || 'Portfolio media'}>{hero.cta2.text || ''}</MediaLink>}
-              {resumeUrl && <MediaTrigger className="button button-quiet resume-button" src={resumeUrl} type="pdf" title="Resume"><FileText size={16} />View resume</MediaTrigger>}
             </div>
-            <a className="scroll-cue" href="#about"><ArrowDown size={16} /> Scroll to explore</a>
+            <a className="scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Scroll to explore</a>
           </motion.div>
           <div className="hero-coordinate" aria-hidden="true"><span>01</span><i /></div>
         </section>
 
-        <Section id="about" title={about.title || 'About'} eyebrow={about.eyebrow || 'A little context'}>
+        {aboutVisible && <Section id="about" title={about.title || 'About'} eyebrow={about.eyebrow || 'A little context'}>
           <div className="about-layout">
             {about.photoURL && <MediaTrigger className="about-media-trigger" src={about.photoURL} title={about.photoAlt || 'About photo'}><img className="about-photo" src={cloudinaryUrl(about.photoURL, 700)} alt={about.photoAlt || ''} loading="lazy" /></MediaTrigger>}
             <div className="about-copy">
@@ -159,9 +170,9 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
               <ul className="tag-list">{(about.tags || []).map((tag) => <li key={tag}>{tag}</li>)}</ul>
             </div>
           </div>
-        </Section>
+        </Section>}
 
-        <Section id="skills" title={content.skillsTitle || 'Skills'} eyebrow={content.skillsEyebrow || 'Tools for the work'}>
+        {skillsVisible && <Section id="skills" title={content.skillsTitle || 'Skills'} eyebrow={content.skillsEyebrow || 'Tools for the work'}>
           <div className="skills-orbit">
             {(content.skills || []).map((category, index) => (
               <article className={`skill-cluster cluster-${index % 3}`} key={`${category.category}-${index}`}>
@@ -170,13 +181,13 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
               </article>
             ))}
           </div>
-        </Section>
+        </Section>}
 
-        <Section id="projects" title={content.projectsTitle || 'Projects'} eyebrow={content.projectsEyebrow || 'Selected work'}>
+        {projectsVisible && <Section id="projects" title={content.projectsTitle || 'Projects'} eyebrow={content.projectsEyebrow || 'Selected work'}>
           <div className="project-grid">{(content.projects || []).map((project) => <Project key={project.id || project.title} project={project} />)}</div>
-        </Section>
+        </Section>}
 
-        <Section id="hobby" title={hobby.title || 'Beyond the code'} eyebrow={hobby.subtitle || ''}>
+        {hobbyVisible && <Section id="hobby" title={hobby.title || 'Beyond the code'} eyebrow={hobby.subtitle || ''}>
           <div className="hobby-layout">
             {(hobby.photos || []).slice(0, 3).map((photo) => (
               <figure key={photo.publicId || photo.src}>
@@ -186,16 +197,15 @@ export default function Portfolio({ content, settings, showAsPage, setShowAsPage
             ))}
             {hobby.ctaURL && <MediaLink className="button button-primary hobby-link" href={hobby.ctaURL} title={hobby.ctaText || 'Hobby media'}>{hobby.ctaText || ''}<ArrowUpRight size={17} /></MediaLink>}
           </div>
-        </Section>
+        </Section>}
 
-        <Section id="contact" title={content.contactTitle || 'Let’s make something'} eyebrow={content.contactEyebrow || 'Have a good one in mind?'}>
+        {contactVisible && <Section id="contact" title={content.contactTitle || 'Let’s make something'} eyebrow={content.contactEyebrow || 'Have a good one in mind?'}>
           <ContactForm />
-        <SiteContactDetails contact={settings.contact} social={settings.social} className="contact-meta" />
-        </Section>
+          <SiteContactDetails contact={settings.contact} social={settings.social} className="contact-meta" />
+        </Section>}
       </main>
       <footer className="site-footer">
-        <span>{seo.title || hero.headline || ''}</span>
-      <SocialLinks social={settings.social} className="site-footer-socials" />
+        <span>© {new Date().getFullYear()} Tejas. All rights reserved.</span>
         {settings.proSite?.crossLinkToPhoto && <a href={settings.proSite.crossLinkToPhoto}>More work <ArrowUpRight size={14} /></a>}
       </footer>
     </>

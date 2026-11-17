@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation, u
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Aperture, ChevronLeft, ChevronRight, Images, LayoutDashboard, LogOut, Mail,
-  Menu, Settings as SettingsIcon, X
+  Menu, Settings as SettingsIcon, Tags, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from './api';
@@ -38,8 +38,9 @@ const navigation = [
       { label: 'Hero', path: '/photo/hero' },
       { label: 'Gallery', path: '/photo/gallery' },
       { label: 'Stories', path: '/photo/stories' },
-      { label: 'Showreel', path: '/photo/showreel' },
+      { label: 'Reels', path: '/photo/reels' },
       { label: 'Videos', path: '/photo/videos' },
+      { label: 'Categories', path: '/photo/categories', icon: Tags },
       { label: 'Clients', path: '/photo/clients' },
       { label: 'About', path: '/photo/about' },
       { label: 'SEO & sharing', path: '/photo/seo' }
@@ -57,7 +58,7 @@ const navigation = [
 
 const contentTitles = {
   'pro/hero': 'Hero', 'pro/about': 'About', 'pro/skills': 'Skills', 'pro/projects': 'Projects', 'pro/hobby': 'Hobby', 'pro/resume': 'Resume', 'pro/seo': 'SEO & sharing',
-  'photo/hero': 'Hero', 'photo/gallery': 'Gallery', 'photo/stories': 'Stories', 'photo/showreel': 'Showreel', 'photo/videos': 'Videos', 'photo/clients': 'Clients', 'photo/about': 'About', 'photo/seo': 'SEO & sharing'
+  'photo/hero': 'Hero', 'photo/gallery': 'Gallery', 'photo/stories': 'Stories', 'photo/reels': 'Reels', 'photo/videos': 'Videos', 'photo/categories': 'Categories', 'photo/clients': 'Clients', 'photo/about': 'About', 'photo/seo': 'SEO & sharing'
 };
 
 function ProtectedRoute() {

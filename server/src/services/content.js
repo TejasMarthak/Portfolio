@@ -4,7 +4,7 @@ const PhotoContent = require('../models/PhotoContent');
 const collections = { pro: ProContent, photo: PhotoContent };
 const allowedSections = {
   pro: new Set(['hero', 'about', 'skills', 'projects', 'hobby', 'resume', 'seo']),
-  photo: new Set(['hero', 'gallery', 'stories', 'showreel', 'videos', 'clients', 'about', 'seo'])
+  photo: new Set(['hero', 'gallery', 'stories', 'reels', 'videos', 'clients', 'categories', 'about', 'seo'])
 };
 
 async function getContent(site) {

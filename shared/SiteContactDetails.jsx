@@ -1,4 +1,46 @@
-import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import {
+  AtSign, BookOpen, Dribbble, Facebook, Github, Globe2, Instagram, Linkedin,
+  Mail, MapPin, MessageCircle, Music2, Palette, Phone, Pin, Send, Twitch, Twitter, Youtube
+} from 'lucide-react';
+
+const socialIcons = {
+  instagram: Instagram,
+  facebook: Facebook,
+  github: Github,
+  linkedin: Linkedin,
+  youtube: Youtube,
+  twitter: Twitter,
+  x: Twitter,
+  twitch: Twitch,
+  dribbble: Dribbble,
+  behance: Palette,
+  pinterest: Pin,
+  tiktok: Music2,
+  threads: AtSign,
+  telegram: Send,
+  whatsapp: MessageCircle,
+  medium: BookOpen
+};
+const socialHosts = [
+  ['youtube.com', 'youtube'], ['youtu.be', 'youtube'], ['x.com', 'x'], ['twitter.com', 'twitter'],
+  ['twitch.tv', 'twitch'], ['behance.net', 'behance'], ['threads.net', 'threads'],
+  ['tiktok.com', 'tiktok'], ['pinterest.com', 'pinterest'], ['linkedin.com', 'linkedin'],
+  ['instagram.com', 'instagram'], ['facebook.com', 'facebook'], ['github.com', 'github'],
+  ['dribbble.com', 'dribbble'], ['medium.com', 'medium'], ['t.me', 'telegram'], ['wa.me', 'whatsapp']
+];
+
+function socialIcon(name, url) {
+  const key = name.toLowerCase().replace(/[^a-z]/g, '');
+  const host = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+    } catch {
+      return '';
+    }
+  })();
+  const fromHost = socialHosts.find(([domain]) => host === domain || host.endsWith(`.${domain}`))?.[1];
+  return socialIcons[key] || socialIcons[fromHost] || Globe2;
+}
 
 export function getEnabledSocialLinks(social = {}) {
   return Object.entries(social).flatMap(([name, value]) => {
@@ -37,7 +79,10 @@ function emailUrl(value) {
 export function SocialLinks({ social, className = 'site-social-links' }) {
   const links = getEnabledSocialLinks(social);
   if (!links.length) return null;
-  return <div className={className}>{links.map(({ name, url }) => <a key={name} href={url} target="_blank" rel="noreferrer">{name}</a>)}</div>;
+  return <div className={className}>{links.map(({ name, url }) => {
+    const Icon = socialIcon(name, url);
+    return <a key={name} href={url} target="_blank" rel="noreferrer" aria-label={name} title={name}><Icon size={16} aria-hidden="true" /><span>{name}</span></a>;
+  })}</div>;
 }
 
 export default function SiteContactDetails({ contact = {}, social, className = '' }) {

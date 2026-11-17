@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -11,6 +11,7 @@ import '../../shared/media-viewer.css';
 import './styles.css';
 
 const BuildPlane = lazy(() => import('./scene/BuildPlane'));
+const PAGE_TITLE = 'Tejas | FullStack Developer';
 
 function readData(result) {
   return result?.data?.content || result?.data?.settings || {};
@@ -35,17 +36,21 @@ function ScenePlaceholder() {
 export default function App() {
   const is3DCapable = useIs3DCapable();
   const reducedMotion = useReducedMotion();
-  const [showAsPage, setShowAsPage] = useState(false);
   const contentQuery = useQuery({ queryKey: ['pro'], queryFn: () => api.get('/api/pro/content'), staleTime: 300000, retry: 1 });
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/api/settings'), staleTime: 300000, retry: 1 });
   const content = useMemo(() => readData(contentQuery.data), [contentQuery.data]);
   const settings = useMemo(() => readData(settingsQuery.data), [settingsQuery.data]);
   const hasContent = hasPublishedContent(content);
+  const sceneContent = useMemo(() => ({
+    ...content,
+    skills: settings.sections?.pro?.skills === false ? [] : content.skills || [],
+    projects: settings.sections?.pro?.projects === false ? [] : content.projects || []
+  }), [content, settings.sections?.pro?.skills, settings.sections?.pro?.projects]);
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
 
   useEffect(() => {
-    if (!showAsPage && is3DCapable) return undefined;
+    if (is3DCapable) return undefined;
     const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
     let frame;
     const animate = (time) => {
@@ -57,23 +62,21 @@ export default function App() {
       cancelAnimationFrame(frame);
       lenis.destroy();
     };
-  }, [showAsPage, is3DCapable]);
+  }, [is3DCapable]);
 
   const seo = content.seo || {};
-  const pageTitle = seo.title || (content.hero?.headline
-    ? `${content.hero.headline} | Developer Portfolio`
-    : 'Developer Portfolio');
+  const pageTitle = PAGE_TITLE;
   const personSchema = {
     '@context': 'https://schema.org',
     '@type': 'Person',
-    name: content.hero?.headline || '',
+    name: 'Tejas',
     description: seo.desc || content.hero?.subheadline || '',
     url: typeof window !== 'undefined' ? window.location.origin : '',
     image: seo.ogImage || content.about?.photoURL || ''
   };
 
   return (
-    <div className={`app-shell ${showAsPage || !is3DCapable ? 'page-mode' : 'world-mode'}`}>
+    <div className={`app-shell ${is3DCapable ? 'world-mode' : 'page-mode'}`}>
       <Helmet>
         <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}
@@ -84,10 +87,10 @@ export default function App() {
         <link rel="canonical" href={window.location.href.split('#')[0]} />
         <script type="application/ld+json">{JSON.stringify(personSchema).replace(/</g, '\\u003c')}</script>
       </Helmet>
-      {!showAsPage && is3DCapable && hasContent && (
+      {is3DCapable && hasContent && (
         <div className="scene-layer" aria-hidden="true">
           <Suspense fallback={<ScenePlaceholder />}>
-            <BuildPlane content={content} reducedMotion={Boolean(reducedMotion)} />
+            <BuildPlane content={sceneContent} reducedMotion={Boolean(reducedMotion)} />
           </Suspense>
         </div>
       )}
@@ -109,7 +112,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <Portfolio content={content} settings={settings} showAsPage={showAsPage || !is3DCapable} setShowAsPage={setShowAsPage} />
+        <Portfolio content={content} settings={settings} canUse3D={is3DCapable} />
       )}
       {reducedMotion && <motion.span className="sr-only" aria-live="polite">Reduced motion is enabled.</motion.span>}
     </div>

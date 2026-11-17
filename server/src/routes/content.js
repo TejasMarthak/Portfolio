@@ -46,7 +46,7 @@ function createContentRouter(site) {
   });
   router.delete('/:section', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (req, res, next) => {
     try {
-      const arraySections = site === 'pro' ? ['skills', 'projects'] : ['gallery', 'stories', 'videos', 'clients'];
+      const arraySections = site === 'pro' ? ['skills', 'projects'] : ['gallery', 'stories', 'reels', 'videos', 'clients'];
       const resetValue = arraySections.includes(req.params.section) ? [] : {};
       const content = await updateSection(site, req.params.section, resetValue);
       return res.json({ content });
