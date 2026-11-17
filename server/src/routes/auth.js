@@ -5,7 +5,9 @@ const passport = require('../config/passport');
 const { rateLimits } = require('../middleware/rateLimits');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { checkLockout, recordFailure, clearFailures } = require('../middleware/authLockout');
-const { issuePair, setPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie } = require('../config/tokens');
+const {
+  issuePair, setPairCookies, clearPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie
+} = require('../config/tokens');
 const AuthSession = require('../models/AuthSession');
 const Admin = require('../models/Admin');
 const Media = require('../models/Media');
@@ -70,9 +72,7 @@ router.post('/logout', verifyAccess, verifyCsrf, async (req, res, next) => {
       req.rotatedPair && revokeToken(req.rotatedPair.refreshJti, jwt.decode(req.rotatedPair.refreshToken).exp),
       (req.tokenPayload || access)?.sid && AuthSession.deleteOne({ sessionId: (req.tokenPayload || access).sid })
     ]);
-    res.clearCookie(accessCookie, { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
-    res.clearCookie(refreshCookie, { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
-    res.clearCookie('csrfToken', { path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    clearPairCookies(res);
     return res.json({ ok: true });
   } catch (error) {
     return next(error);
@@ -88,9 +88,7 @@ router.post('/session/invalidate', verifyAccess, verifyCsrf, async (req, res, ne
       req.rotatedPair && revokeToken(req.rotatedPair.refreshJti, jwt.decode(req.rotatedPair.refreshToken).exp),
       (req.tokenPayload || access)?.sid && AuthSession.deleteOne({ sessionId: (req.tokenPayload || access).sid })
     ]);
-    res.clearCookie(accessCookie, { path: '/' });
-    res.clearCookie(refreshCookie, { path: '/' });
-    res.clearCookie('csrfToken', { path: '/' });
+    clearPairCookies(res);
     return res.status(204).end();
   } catch (error) {
     return next(error);

@@ -115,7 +115,7 @@ Create one Render Web Service from the same repository using the API-only `rende
 
 Configure the API's environment variables in Render: MongoDB, Redis, Google OAuth, `ADMIN_EMAIL`, Cloudinary, optional email/WhatsApp settings, `SERVER_URL`, and the three frontend origins (`PRO_CLIENT_URL`, `PHOTO_CLIENT_URL`, `ADMIN_CLIENT_URL`). Set `GOOGLE_CALLBACK_URL` to `https://<api-domain>/api/auth/google/callback` and add that exact URL to the Google OAuth client. Generate separate JWT secrets of at least 32 characters. Production rate limits and OAuth state require Redis.
 
-For reliable CMS sign-in, give all four services HTTPS custom domains under the same registered domain, for example `dev.example.com`, `photo.example.com`, `admin.example.com`, and `api.example.com`. The API uses `SameSite=Strict` authentication cookies; the default Vercel and Render domains are cross-site and may prevent the Admin browser from sending those cookies. Set the Vercel frontend variables, Render client-origin variables, and OAuth callback to the final custom domains.
+The API uses `SameSite=None; Secure` cookies in production so the Admin can send credentials to a Render API from a Vercel domain. Set the Vercel frontend variables, Render client-origin variables, and OAuth callback to the exact deployed HTTPS origins. The API still allows only the configured frontend origins and requires the double-submit CSRF token for mutations. Some browsers or privacy settings block third-party cookies; test CMS sign-in in the browsers you intend to support.
 
 Enable automatic deployments from `main` in Vercel and Render. A normal push then deploys each Vercel project and the Render API independently, while GitHub Actions only runs the quality checks. To run the checks and push your current branch with the existing shortcut, use `npm run deploy`; a regular `git push origin main` also triggers the platform deployments. To start the four local services, use `npm run all`.
 
@@ -123,7 +123,7 @@ Enter the real portfolio copy, images, project links, SEO metadata, social links
 
 ## Security and operations notes
 
-- Admin JWTs are only sent in `httpOnly`, `SameSite=Strict` cookies; mutations also require the double-submit CSRF token. Configure the three exact frontend origins—never use a wildcard.
+- Admin JWTs are only sent in `httpOnly`, `Secure`, `SameSite=None` production cookies; mutations also require the double-submit CSRF token. Configure the three exact frontend origins—never use a wildcard.
 - **CMS → Media library → Delete all media** permanently removes all tracked Cloudinary assets and clears their portfolio and profile-photo references after the administrator types `DELETE ALL`. Items whose Cloudinary deletion fails remain in the library for retry; assets uploaded outside the CMS and not recorded in its media library are not included.
 - OAuth sign-in initiation, callbacks, and token refreshes have separate per-IP limits. The callback validates a short-lived, single-use state token without binding it to an IP that may change during Google's redirect. Five failed callbacks trigger a 15-minute per-IP lockout. Production rate limits and OAuth state require Redis. Development may run without Redis, using per-process limits.
 - WhatsApp linking is limited to ten attempts per hour. Authenticated status polling has its own limit, so waiting for a QR code or pairing code does not consume pairing attempts.

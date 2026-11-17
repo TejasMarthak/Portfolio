@@ -5,10 +5,16 @@ const TokenRevocation = require('../models/TokenRevocation');
 
 const accessCookie = 'accessToken';
 const refreshCookie = 'refreshToken';
+const cookieSameSite = process.env.NODE_ENV === 'production' ? 'none' : 'strict';
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  sameSite: cookieSameSite,
+  path: '/'
+};
+const csrfCookieOptions = {
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: cookieSameSite,
   path: '/'
 };
 
@@ -47,11 +53,13 @@ function setPairCookies(res, pair, csrfToken) {
   const refreshExp = jwt.decode(pair.refreshToken)?.exp;
   res.cookie(accessCookie, pair.accessToken, { ...cookieOptions, maxAge: Math.max(0, accessExp * 1000 - Date.now()) });
   res.cookie(refreshCookie, pair.refreshToken, { ...cookieOptions, maxAge: Math.max(0, refreshExp * 1000 - Date.now()) });
-  res.cookie('csrfToken', csrfToken || crypto.randomBytes(32).toString('hex'), {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/'
-  });
+  res.cookie('csrfToken', csrfToken || crypto.randomBytes(32).toString('hex'), csrfCookieOptions);
+}
+
+function clearPairCookies(res) {
+  res.clearCookie(accessCookie, cookieOptions);
+  res.clearCookie(refreshCookie, cookieOptions);
+  res.clearCookie('csrfToken', csrfCookieOptions);
 }
 
 async function revokeToken(jti, exp) {
@@ -96,5 +104,6 @@ async function rotateRefresh(token) {
 }
 
 module.exports = {
-  accessCookie, refreshCookie, cookieOptions, issuePair, setPairCookies, revokeToken, rotateRefresh
+  accessCookie, refreshCookie, cookieOptions, csrfCookieOptions, issuePair, setPairCookies,
+  clearPairCookies, revokeToken, rotateRefresh
 };
