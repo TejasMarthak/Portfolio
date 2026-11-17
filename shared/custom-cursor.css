@@ -1,0 +1,28 @@
+html.has-custom-cursor,
+html.has-custom-cursor body,
+html.has-custom-cursor body * { cursor: none !important; }
+
+html.has-custom-cursor input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]),
+html.has-custom-cursor textarea,
+html.has-custom-cursor [contenteditable="true"] { cursor: text !important; }
+
+html.has-custom-cursor button:disabled,
+html.has-custom-cursor [aria-disabled="true"] { cursor: not-allowed !important; }
+
+html.has-custom-cursor dialog,
+html.has-custom-cursor dialog * { cursor: auto !important; }
+
+.custom-cursor { --cursor-accent: #a5b4fc; position: fixed; z-index: 2147483647; inset: 0 auto auto 0; width: 0; height: 0; opacity: 0; pointer-events: none; transition: opacity .16s ease; }
+.custom-cursor-pro { --cursor-accent: #33f2c7; }
+.custom-cursor-photo { --cursor-accent: #e8a838; }
+.custom-cursor-cms { --cursor-accent: #818cf8; }
+.custom-cursor.is-visible { opacity: 1; }
+.custom-cursor-ring, .custom-cursor-core { position: fixed; left: var(--pointer-x, -100px); top: var(--pointer-y, -100px); display: block; border-radius: 50%; pointer-events: none; }
+.custom-cursor-ring { width: 29px; height: 29px; border: 1px solid color-mix(in srgb, var(--cursor-accent) 72%, white); background: color-mix(in srgb, var(--cursor-accent) 7%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--cursor-accent) 25%, transparent); transform: translate(-50%, -50%); transition: width .2s cubic-bezier(.2,.8,.2,1), height .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.custom-cursor-core { width: 4px; height: 4px; background: var(--cursor-accent); box-shadow: 0 0 9px color-mix(in srgb, var(--cursor-accent) 75%, transparent); transform: translate(-50%, -50%); }
+.custom-cursor.is-interactive .custom-cursor-ring { width: 43px; height: 43px; border-color: var(--cursor-accent); background: color-mix(in srgb, var(--cursor-accent) 13%, transparent); box-shadow: 0 0 25px color-mix(in srgb, var(--cursor-accent) 36%, transparent); }
+.custom-cursor.is-down .custom-cursor-ring { width: 23px; height: 23px; background: color-mix(in srgb, var(--cursor-accent) 24%, transparent); }
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .custom-cursor { display: none; }
+}

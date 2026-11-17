@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Aperture, ChevronLeft, ChevronRight, Images, LayoutDashboard, LogOut, Mail,
-  Menu, Settings as SettingsIcon, Tags, X
+  Aperture, BookOpen, Camera, ChevronLeft, ChevronRight, Clapperboard, Code2,
+  FileText, FolderKanban, Heart, Images, LayoutDashboard, LogOut, Mail, Menu,
+  Search, Settings as SettingsIcon, Tags, UserRound, UsersRound, Video, WandSparkles, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from './api';
+import CustomCursor from '../../shared/CustomCursor.jsx';
+import { ProfilePhotoCrop } from './components/DropUpload';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Contacts from './pages/Contacts';
@@ -23,27 +26,27 @@ const navigation = [
   {
     label: 'Pro portfolio',
     links: [
-      { label: 'Hero', path: '/pro/hero' },
-      { label: 'About', path: '/pro/about' },
-      { label: 'Skills', path: '/pro/skills' },
-      { label: 'Projects', path: '/pro/projects' },
-      { label: 'Hobby', path: '/pro/hobby' },
-      { label: 'Resume', path: '/pro/resume' },
-      { label: 'SEO & sharing', path: '/pro/seo' }
+      { label: 'Hero', path: '/pro/hero', icon: WandSparkles },
+      { label: 'About', path: '/pro/about', icon: UserRound },
+      { label: 'Skills', path: '/pro/skills', icon: Code2 },
+      { label: 'Projects', path: '/pro/projects', icon: FolderKanban },
+      { label: 'Hobby', path: '/pro/hobby', icon: Heart },
+      { label: 'Resume', path: '/pro/resume', icon: FileText },
+      { label: 'SEO & sharing', path: '/pro/seo', icon: Search }
     ]
   },
   {
     label: 'Photo portfolio',
     links: [
-      { label: 'Hero', path: '/photo/hero' },
-      { label: 'Gallery', path: '/photo/gallery' },
-      { label: 'Stories', path: '/photo/stories' },
-      { label: 'Reels', path: '/photo/reels' },
-      { label: 'Videos', path: '/photo/videos' },
+      { label: 'Hero', path: '/photo/hero', icon: Aperture },
+      { label: 'Gallery', path: '/photo/gallery', icon: Images },
+      { label: 'Stories', path: '/photo/stories', icon: BookOpen },
+      { label: 'Reels', path: '/photo/reels', icon: Clapperboard },
+      { label: 'Videos', path: '/photo/videos', icon: Video },
       { label: 'Categories', path: '/photo/categories', icon: Tags },
-      { label: 'Clients', path: '/photo/clients' },
-      { label: 'About', path: '/photo/about' },
-      { label: 'SEO & sharing', path: '/photo/seo' }
+      { label: 'Clients', path: '/photo/clients', icon: UsersRound },
+      { label: 'About', path: '/photo/about', icon: Camera },
+      { label: 'SEO & sharing', path: '/photo/seo', icon: Search }
     ]
   },
   {
@@ -78,6 +81,9 @@ function ProtectedRoute() {
 function AdminLayout({ user }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -93,6 +99,46 @@ function AdminLayout({ user }) {
 
   function closeDrawer() {
     setDrawerOpen(false);
+  }
+
+  function selectAvatar(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(file.type)) {
+      toast.error('Choose a JPG, PNG, WebP or AVIF image.');
+      return;
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      toast.error('The photo exceeds the 200 MB upload limit.');
+      return;
+    }
+    setAvatarFile(file);
+  }
+
+  async function saveAvatar(file) {
+    setAvatarFile(null);
+    setAvatarBusy(true);
+    const formData = new FormData();
+    formData.append('folder', 'admin-profile');
+    formData.append('file', file);
+    try {
+      const { data: uploaded } = await api.post('/api/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      });
+      const { data: updated } = await api.patch('/api/auth/me/avatar', { mediaId: uploaded.media._id });
+      queryClient.setQueryData(['auth-me'], (current) => current
+        ? { ...current, data: { ...current.data, user: updated.user } }
+        : current);
+      toast.success('Account photo updated.');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Account photo could not be updated.');
+    } finally {
+      setAvatarBusy(false);
+    }
   }
 
   return (
@@ -111,7 +157,7 @@ function AdminLayout({ user }) {
               {group.links.map((link) => {
                 const Icon = link.icon;
                 return (
-                  <NavLink key={link.path} to={link.path} end={link.path === '/'} onClick={closeDrawer} title={collapsed ? link.label : undefined} className={({ isActive }) => `nav-link ${isActive ? 'nav-active' : ''}`}>
+                  <NavLink key={link.path} to={link.path} end={link.path === '/'} onClick={closeDrawer} title={collapsed ? link.label : undefined} aria-label={link.label} className={({ isActive }) => `nav-link ${isActive ? 'nav-active' : ''}`}>
                     {Icon ? <Icon size={17} /> : <span className="nav-bullet" />}
                     {!collapsed && <span>{link.label}</span>}
                   </NavLink>
@@ -121,11 +167,15 @@ function AdminLayout({ user }) {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="collapse-button" type="button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <ChevronRight size={17} /> : <><ChevronLeft size={17} /><span>Collapse sidebar</span></>}</button>
+          <button className="collapse-button" type="button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} title={collapsed ? 'Expand sidebar' : undefined}>{collapsed ? <ChevronRight size={17} /> : <><ChevronLeft size={17} /><span>Collapse sidebar</span></>}</button>
           <div className="admin-user">
-            {user.avatar ? <img src={user.avatar} alt="" /> : <span className="user-initial">{user.name?.[0] || 'A'}</span>}
+            <button type="button" className="admin-avatar-button" onClick={() => avatarInputRef.current?.click()} disabled={avatarBusy} aria-label="Change account photo" title={avatarBusy ? 'Uploading account photo' : 'Change account photo'}>
+              <AccountAvatar key={user.avatar} avatar={user.avatar} name={user.name} />
+              <span className="admin-avatar-edit" aria-hidden="true"><Camera size={11} /></span>
+            </button>
+            <input ref={avatarInputRef} className="admin-avatar-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={selectAvatar} aria-label="Choose account photo" />
             {!collapsed && <div className="user-copy"><strong>{user.name}</strong><small>{user.email}</small></div>}
-            <button type="button" className="logout-button" onClick={() => logout.mutate()} disabled={logout.isPending} aria-label="Sign out"><LogOut size={16} /></button>
+            <button type="button" className="logout-button" onClick={() => logout.mutate()} disabled={logout.isPending} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
           </div>
         </div>
       </aside>
@@ -137,7 +187,19 @@ function AdminLayout({ user }) {
         </header>
         <main className="admin-content"><Outlet /></main>
       </div>
+      {avatarFile && <ProfilePhotoCrop file={avatarFile} onCancel={() => setAvatarFile(null)} onCrop={saveAvatar} />}
     </div>
+  );
+}
+
+function AccountAvatar({ avatar, name }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className="admin-avatar">
+      {avatar && !failed
+        ? <img src={avatar} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+        : <span className="user-initial">{name?.[0] || 'A'}</span>}
+    </span>
   );
 }
 
@@ -173,5 +235,5 @@ function RouteTable() {
 }
 
 export default function App() {
-  return <BrowserRouter><RouteTable /></BrowserRouter>;
+  return <BrowserRouter><CustomCursor theme="cms" /><RouteTable /></BrowserRouter>;
 }

@@ -22,15 +22,15 @@ function videoEmbedUrl(value) {
     const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
     if (hostname === 'youtu.be') {
       const id = url.pathname.split('/').filter(Boolean)[0];
-      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=0&controls=1&playsinline=1` : '';
     }
     if (['youtube.com', 'm.youtube.com', 'youtube-nocookie.com'].includes(hostname)) {
       const id = url.searchParams.get('v') || url.pathname.match(/^\/(?:embed|shorts|live)\/([^/]+)/)?.[1];
-      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : '';
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=0&controls=1&playsinline=1` : '';
     }
     if (hostname === 'vimeo.com' || hostname === 'player.vimeo.com') {
       const id = url.pathname.match(/\/(?:video\/)?(\d+)/)?.[1];
-      return id ? `https://player.vimeo.com/video/${id}` : '';
+      return id ? `https://player.vimeo.com/video/${id}?autoplay=1&muted=0&controls=1&playsinline=1` : '';
     }
   } catch {
     return '';
@@ -110,7 +110,7 @@ function mediaViewerBounds(aspect, viewportWidth, viewportHeight) {
 function MediaVideo({ src, title, onDimensions }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
 
   const togglePlayback = () => {
     const video = videoRef.current;
@@ -151,7 +151,7 @@ function MediaVideo({ src, title, onDimensions }) {
         className="site-media-viewer-mute"
         onClick={() => setMuted((value) => !value)}
         aria-label={muted ? 'Unmute video' : 'Mute video'}
-        aria-pressed={!muted}
+        aria-pressed={muted}
       >
         {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
       </button>

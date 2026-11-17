@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react';
+import { canRender3D } from '../../../shared/deviceRendering.js';
 
 export function useIs3DCapable() {
   const [capable, setCapable] = useState(false);
 
   useEffect(() => {
-    const canvas = document.createElement('canvas');
-    let context;
-    try {
-      context = canvas.getContext('webgl2');
-    } catch {
-      setCapable(false);
-      return;
-    }
-
-    setCapable(Boolean(context));
-    context?.getExtension('WEBGL_lose_context')?.loseContext();
+    setCapable(canRender3D());
   }, []);
 
   return capable;

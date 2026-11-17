@@ -24,7 +24,7 @@ const sectionDefaults = {
     videos: [],
     categories: { gallery: [], stories: [], reels: [], videos: [] },
     clients: [],
-    about: { openingLine: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', gear: [], availability: '' },
+    about: { title: '', openingLine: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', gear: [], availability: '' },
     seo: { title: '', desc: '', ogImage: '', keywords: '' }
   }
 };
@@ -210,7 +210,7 @@ function ObjectFields({
               }
             })}><Trash2 size={13} />Remove from section</button>
             )}
-            <DropUpload folder={uploadFolder(site, section, key)} acceptVideo={/video/i.test(key)} onUploaded={(media) => onUpload(fieldPath, key, media)} />
+            <DropUpload folder={uploadFolder(site, section, key)} acceptVideo={/video/i.test(key)} cropImage={section === 'about' && key === 'photoURL'} onUploaded={(media) => onUpload(fieldPath, key, media)} />
           </div>
         )}
       </label>;

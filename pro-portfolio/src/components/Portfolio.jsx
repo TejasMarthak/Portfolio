@@ -166,7 +166,7 @@ export default function Portfolio({ content, settings, canUse3D }) {
             {about.photoURL && <MediaTrigger className="about-media-trigger" src={about.photoURL} title={about.photoAlt || 'About photo'}><img className="about-photo" src={cloudinaryUrl(about.photoURL, 700)} alt={about.photoAlt || ''} loading="lazy" /></MediaTrigger>}
             <div className="about-copy">
               <p className="large-copy">{about.bio || ''}</p>
-              <div className="stats-row">{(about.stats || []).map((stat) => <div key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span></div>)}</div>
+              <div className="stats-row">{(about.stats || []).map((stat, index) => <div key={`${stat.label}-${index}`}><strong>{stat.value}</strong><span>{stat.label}</span></div>)}</div>
               <ul className="tag-list">{(about.tags || []).map((tag) => <li key={tag}>{tag}</li>)}</ul>
             </div>
           </div>
@@ -177,20 +177,20 @@ export default function Portfolio({ content, settings, canUse3D }) {
             {(content.skills || []).map((category, index) => (
               <article className={`skill-cluster cluster-${index % 3}`} key={`${category.category}-${index}`}>
                 <h3>{category.category}</h3>
-                <div>{(category.items || []).map((skill) => <span className="skill-node" key={skill.name}>{skill.name}</span>)}</div>
+                <div>{(category.items || []).map((skill, skillIndex) => <span className="skill-node" key={`${skill.name}-${skillIndex}`}>{skill.name}</span>)}</div>
               </article>
             ))}
           </div>
         </Section>}
 
         {projectsVisible && <Section id="projects" title={content.projectsTitle || 'Projects'} eyebrow={content.projectsEyebrow || 'Selected work'}>
-          <div className="project-grid">{(content.projects || []).map((project) => <Project key={project.id || project.title} project={project} />)}</div>
+          <div className="project-grid">{(content.projects || []).map((project, index) => <Project key={project.id || `${project.title || 'project'}-${index}`} project={project} />)}</div>
         </Section>}
 
         {hobbyVisible && <Section id="hobby" title={hobby.title || 'Beyond the code'} eyebrow={hobby.subtitle || ''}>
           <div className="hobby-layout">
-            {(hobby.photos || []).slice(0, 3).map((photo) => (
-              <figure key={photo.publicId || photo.src}>
+            {(hobby.photos || []).map((photo, index) => (
+              <figure key={`${photo.publicId || photo.src || photo.caption || 'photo'}-${index}`}>
                 <MediaTrigger className="hobby-media-trigger" src={photo.src} title={photo.caption || 'Hobby photo'}><img src={cloudinaryUrl(photo.src, 850)} alt={photo.caption || ''} loading="lazy" /></MediaTrigger>
                 {photo.caption && <figcaption>{photo.caption}</figcaption>}
               </figure>

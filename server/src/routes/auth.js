@@ -1,11 +1,14 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const passport = require('../config/passport');
 const { rateLimits } = require('../middleware/rateLimits');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { checkLockout, recordFailure, clearFailures } = require('../middleware/authLockout');
 const { issuePair, setPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie } = require('../config/tokens');
 const AuthSession = require('../models/AuthSession');
+const Admin = require('../models/Admin');
+const Media = require('../models/Media');
 const { createOAuthState, consumeOAuthState } = require('../services/oauthState');
 const router = express.Router();
 
@@ -97,5 +100,29 @@ router.get('/me', verifyAccess, (req, res) => res.json({
   user: req.admin,
   csrfToken: req.cookies.csrfToken || ''
 }));
+
+router.patch('/me/avatar', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (req, res, next) => {
+  const { mediaId } = req.body || {};
+  if (typeof mediaId !== 'string' || !mongoose.isValidObjectId(mediaId)) {
+    return res.status(400).json({ error: 'A valid uploaded profile photo is required' });
+  }
+  try {
+    const media = await Media.findOne({
+      _id: mediaId,
+      folder: 'admin-profile',
+      resourceType: 'image'
+    }).select('url').lean();
+    if (!media) return res.status(404).json({ error: 'Profile photo not found' });
+    const user = await Admin.findByIdAndUpdate(
+      req.admin._id,
+      { avatar: media.url },
+      { new: true, runValidators: true }
+    ).select('_id email name avatar role twoFAEnabled');
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    return res.json({ user });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 module.exports = router;

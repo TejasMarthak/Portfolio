@@ -11,7 +11,7 @@ const uploadLimits = Object.freeze({
   video: 10 * GiB,
   document: 10 * MiB
 });
-const folders = new Set(['pro-portfolio', 'photo-gallery', 'photo-videos', 'documents']);
+const folders = new Set(['pro-portfolio', 'photo-gallery', 'photo-videos', 'documents', 'admin-profile']);
 const allowedTypes = new Map([
   ['image/jpeg', 'image'], ['image/png', 'image'], ['image/webp', 'image'],
   ['image/avif', 'image'], ['video/mp4', 'video'], ['video/quicktime', 'video'],

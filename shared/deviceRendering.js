@@ -1,3 +1,22 @@
+export function canRender3D() {
+  if (!window.matchMedia('(pointer: fine)').matches) return false;
+
+  const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
+  const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  if (lowCpu || lowMemory) return false;
+
+  let context;
+  try {
+    context = document.createElement('canvas').getContext('webgl2');
+  } catch {
+    return false;
+  }
+
+  const capable = Boolean(context);
+  context?.getExtension('WEBGL_lose_context')?.loseContext();
+  return capable;
+}
+
 export function getScenePixelRatio() {
   const nativePixelRatio = window.devicePixelRatio || 1;
   const isTouch = window.matchMedia('(pointer: coarse)').matches;

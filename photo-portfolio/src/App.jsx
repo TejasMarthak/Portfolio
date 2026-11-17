@@ -5,6 +5,7 @@ import { useReducedMotion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import Lenis from 'lenis';
 import { api } from './api';
+import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
 import Preloader from './components/Preloader';
@@ -19,7 +20,7 @@ function readData(result) {
 }
 
 function hasPublishedContent(content) {
-  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt', 'categories']);
+  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt', 'categories', 'seo']);
   const hasValue = (value) => {
     if (typeof value === 'string') return value.trim().length > 0;
     if (typeof value === 'number' || typeof value === 'boolean') return true;
@@ -85,7 +86,7 @@ export default function App() {
   }, [is3DCapable]);
 
   const seo = content.seo || {};
-  const pageTitle = PAGE_TITLE;
+  const pageTitle = seo.title || PAGE_TITLE;
   const gallerySchema = {
     '@context': 'https://schema.org',
     '@type': 'ImageGallery',
@@ -96,6 +97,7 @@ export default function App() {
 
   return (
     <div className={`photo-app-shell ${is3DCapable ? 'photo-world-mode' : 'photo-page-mode'}`}>
+      <CustomCursor theme="photo" />
       <Helmet>
         <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}

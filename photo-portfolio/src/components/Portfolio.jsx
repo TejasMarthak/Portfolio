@@ -76,8 +76,8 @@ function PhotoGallery({ gallery }) {
 
   return (
     <div className="masonry-gallery">
-      {photos.map((photo) => (
-        <MediaTrigger className={`masonry-item aspect-${photo.aspect || 'portrait'}`} src={photo.src} title={photo.title || photo.alt || 'Photograph'} items={mediaItems} key={photo.id || photo.publicId || photo.src}>
+      {photos.map((photo, index) => (
+        <MediaTrigger className={`masonry-item aspect-${photo.aspect || 'portrait'}`} src={photo.src} title={photo.title || photo.alt || 'Photograph'} items={mediaItems} key={`${photo.id || photo.publicId || photo.src}-${index}`}>
           <img src={cloudinaryUrl(photo.src, 1000)} alt={photo.alt || photo.title || ''} loading="lazy" />
           {(photo.title || photo.category) && <span className="gallery-caption"><span>{photo.category}</span>{photo.title}</span>}
         </MediaTrigger>
@@ -123,12 +123,16 @@ export default function Portfolio({ content, settings, canUse3D }) {
     ...(contactVisible ? [{ id: 'contact', label: content.contactTitle || 'Contact' }] : [])
   ];
   const firstSection = sections.find(({ id }) => id !== 'home')?.id || 'home';
+  const categoryLists = content.categories || {};
   const projectTypes = [...new Set([
+    ...['gallery', 'stories', 'reels', 'videos'].flatMap((section) =>
+      Array.isArray(categoryLists[section]) ? categoryLists[section] : []
+    ),
     ...gallery.map((item) => item.category),
     ...reels.map((item) => item.category),
     ...videos.map((item) => item.category),
     ...stories.map((item) => item.category)
-  ].filter(Boolean))];
+  ].filter((category) => typeof category === 'string' && category.trim()))];
 
   return (
     <MediaViewer theme="photo">
@@ -183,12 +187,29 @@ export default function Portfolio({ content, settings, canUse3D }) {
           <VideoGrid videos={videos} label="Video projects" itemLabel="Video project" />
         </section>}
 
-        {clientsVisible && <section id="clients" className="clients-section" aria-label={content.clientsTitle || 'Clients'}><span className="photo-kicker">{content.clientsTitle || ''}</span><div className="client-track">{clients.map((client) => <div key={client.name}>{client.logoURL ? <MediaTrigger src={client.logoURL} title={`${client.name} logo`} items={clientMediaItems}><img src={cloudinaryUrl(client.logoURL, 260)} alt={client.name} loading="lazy" /></MediaTrigger> : <span>{client.name}</span>}</div>)}</div></section>}
+        {clientsVisible && <section id="clients" className="clients-section" aria-label={content.clientsTitle || 'Clients'}>
+          <div className="photo-section-heading">
+            <span className="photo-kicker">{content.clientsEyebrow || 'Selected collaborators'}</span>
+            <h2>{content.clientsTitle || 'Clients'}</h2>
+          </div>
+          <div className="client-track">{clients.map((client, index) => (
+            <div className="client-item" key={`${client.id || client.name || 'client'}-${index}`}>
+              {client.logoURL && <MediaTrigger className="client-logo-trigger" src={client.logoURL} title={`${client.name || 'Client'} logo`} items={clientMediaItems}><img src={cloudinaryUrl(client.logoURL, 260)} alt={client.name || 'Client logo'} loading="lazy" /></MediaTrigger>}
+              {client.name && <span className="client-name">{client.name}</span>}
+            </div>
+          ))}</div>
+        </section>}
 
-        {aboutVisible && <section id="about" className="photo-section about-section" aria-label={about.openingLine || 'About'}>
-          <div className="about-photo-copy">
+        {aboutVisible && <section id="about" className="photo-section about-section" aria-label={about.title || content.aboutTitle || about.openingLine || 'About'}>
+          <div className={`about-photo-copy ${about.photoURL ? 'has-photo' : 'without-photo'}`}>
             {about.photoURL && <MediaTrigger className="about-media-trigger" src={about.photoURL} title={about.photoAlt || 'About photo'}><img src={cloudinaryUrl(about.photoURL, 1000)} alt={about.photoAlt || ''} loading="lazy" /></MediaTrigger>}
-            <div><span className="photo-kicker">{about.openingLine || ''}</span><h2>{content.aboutTitle || ''}</h2><p>{about.bio || ''}</p><ul>{(about.gear || []).map((item) => <li key={item}>{item}</li>)}</ul>{about.availability && <p className="availability">{about.availability}</p>}</div>
+            <div>
+              {about.openingLine && about.openingLine !== (about.title || content.aboutTitle || 'About') && <span className="photo-kicker">{about.openingLine}</span>}
+              <h2>{about.title || content.aboutTitle || 'About'}</h2>
+              {about.bio && <p>{about.bio}</p>}
+              {!!about.gear?.length && <ul>{about.gear.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>}
+              {about.availability && <p className="availability">{about.availability}</p>}
+            </div>
           </div>
         </section>}
 

@@ -14,13 +14,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.
       const admin = await Admin.findOneAndUpdate(
         { email },
         {
-          googleId: profile.id,
-          email,
-          name: profile.displayName,
-          avatar: profile.photos?.[0]?.value || '',
-          lastLogin: new Date(),
-          loginAttempts: 0,
-          lockUntil: null
+          $set: {
+            googleId: profile.id,
+            email,
+            name: profile.displayName,
+            lastLogin: new Date(),
+            loginAttempts: 0,
+            lockUntil: null
+          },
+          $setOnInsert: { avatar: profile.photos?.[0]?.value || '' }
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );

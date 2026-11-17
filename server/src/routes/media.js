@@ -2,6 +2,7 @@ const express = require('express');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const Media = require('../models/Media');
+const Admin = require('../models/Admin');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { rateLimits } = require('../middleware/rateLimits');
 const { createMediaUpload } = require('../middleware/upload');
@@ -10,7 +11,7 @@ const { removeMediaReferences } = require('../services/mediaReferences');
 const ProContent = require('../models/ProContent');
 const PhotoContent = require('../models/PhotoContent');
 const router = express.Router();
-const folders = new Set(['pro-portfolio', 'photo-gallery', 'photo-videos', 'documents']);
+const folders = new Set(['pro-portfolio', 'photo-gallery', 'photo-videos', 'documents', 'admin-profile']);
 
 async function fetchPdfSource(url, range) {
   const request = (includeRange) => fetch(url, {
@@ -218,6 +219,7 @@ router.delete('/:id', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (re
       }
       if (changed) await content.save();
     }));
+    await Admin.updateMany({ avatar: media.url }, { $set: { avatar: '' } });
     await media.deleteOne();
     return res.status(204).end();
   } catch (error) {

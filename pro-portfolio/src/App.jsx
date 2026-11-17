@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import Lenis from 'lenis';
 import { api } from './api';
+import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
 import '../../shared/media-viewer.css';
@@ -18,7 +19,7 @@ function readData(result) {
 }
 
 function hasPublishedContent(content) {
-  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt']);
+  const metadata = new Set(['_id', '__v', 'singleton', 'createdAt', 'updatedAt', 'seo']);
   const hasValue = (value) => {
     if (typeof value === 'string') return value.trim().length > 0;
     if (typeof value === 'number' || typeof value === 'boolean') return true;
@@ -65,7 +66,7 @@ export default function App() {
   }, [is3DCapable]);
 
   const seo = content.seo || {};
-  const pageTitle = PAGE_TITLE;
+  const pageTitle = seo.title || PAGE_TITLE;
   const personSchema = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -77,6 +78,7 @@ export default function App() {
 
   return (
     <div className={`app-shell ${is3DCapable ? 'world-mode' : 'page-mode'}`}>
+      <CustomCursor theme="pro" />
       <Helmet>
         <title>{pageTitle}</title>
         {seo.desc && <meta name="description" content={seo.desc} />}
