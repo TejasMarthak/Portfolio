@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -269,17 +269,35 @@ function ArrayField({
       : humanize(key).replace(/s$/, '');
   const [pendingRemove, setPendingRemove] = useState(null);
   const [expandedItemId, setExpandedItemId] = useState(null);
+  const [pendingFocusIndex, setPendingFocusIndex] = useState(null);
+  const arrayFieldRef = useRef(null);
   const collapsible = true;
+
+  useEffect(() => {
+    if (pendingFocusIndex === null) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const item = arrayFieldRef.current?.querySelector(`[data-array-item-index="${pendingFocusIndex}"]`);
+      const field = item?.querySelector('input:not([type="checkbox"]):not([type="file"]), textarea, select');
+      item?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field?.focus({ preventScroll: true });
+      if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+        field.setSelectionRange(field.value.length, field.value.length);
+      }
+      setPendingFocusIndex(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingFocusIndex, value.length, expandedItemId]);
 
   function addItem() {
     const item = section === 'categories' ? '' : emptyItem(key, site);
     onChange(path, [...value, item]);
     if (collapsible) setExpandedItemId(item.id ?? `${value.length}`);
+    setPendingFocusIndex(value.length);
   }
 
   return <>
-    <section className="array-field">
-    <div className="array-field-heading"><h3>{fieldTitle}</h3><button type="button" className="button button-muted" onClick={addItem}><Plus size={14} />Add {itemTitle.toLowerCase()}</button></div>
+    <section className="array-field" ref={arrayFieldRef}>
+    <div className="array-field-heading"><h3>{fieldTitle}</h3></div>
     {!value.length && <p className="array-empty">Nothing added yet.</p>}
     {value.map((item, index) => {
       const itemPath = [...path, index];
@@ -291,7 +309,7 @@ function ArrayField({
       const editableItem = site === 'pro' && section === 'projects' && item && typeof item === 'object'
         ? { ...item, skills: item.skills || [] }
         : item;
-      return <article className="array-item" key={item?.id || item?.publicId || `${path.join('.')}-${index}`}>
+      return <article className="array-item" data-array-item-index={index} key={item?.id || item?.publicId || `${path.join('.')}-${index}`}>
         <div className="array-item-heading">
           {collapsible ? (
             <button type="button" className="array-item-toggle" aria-expanded={expanded} onClick={() => setExpandedItemId(expanded ? null : itemId)}>
@@ -319,6 +337,7 @@ function ArrayField({
         )}
       </article>;
     })}
+        <button type="button" className="button button-muted array-add-button" onClick={addItem}><Plus size={14} />Add {itemTitle.toLowerCase()}</button>
       </section>
       {pendingRemove !== null && <ConfirmDialog
         title={`Remove ${itemTitle}?`}

@@ -79,6 +79,18 @@ test('invalid inline PDF identifiers are rejected before media lookup', async (c
   assert.equal(response.status, 400);
 });
 
+test('delete all media requires an authenticated admin before accessing the library', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+  await new Promise((resolve) => server.once('listening', resolve));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/media`, {
+    method: 'DELETE'
+  });
+  assert.equal(response.status, 401);
+});
+
 test('inline PDF delivery validates and streams Cloudinary byte ranges', async (context) => {
   const originalFindOne = Media.findOne;
   const originalFetch = global.fetch;

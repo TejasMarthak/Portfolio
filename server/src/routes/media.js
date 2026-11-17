@@ -8,6 +8,7 @@ const { rateLimits } = require('../middleware/rateLimits');
 const { createMediaUpload } = require('../middleware/upload');
 const { deleteFromCloudinary } = require('../services/cloudinary');
 const { removeMediaReferences } = require('../services/mediaReferences');
+const { deleteMediaAssets } = require('../services/deleteMediaAssets');
 const ProContent = require('../models/ProContent');
 const PhotoContent = require('../models/PhotoContent');
 const router = express.Router();
@@ -174,6 +175,36 @@ async function saveUpload(req, res, next) {
   }
 }
 
+async function clearPortfolioReferences(mediaItems) {
+  if (!mediaItems.length) return;
+  const contents = await Promise.all([
+    ProContent.findOne({ singleton: 'default' }),
+    PhotoContent.findOne({ singleton: 'default' })
+  ]);
+  await Promise.all(contents.map(async (content) => {
+    if (!content) return;
+    const values = content.toObject();
+    const changedKeys = new Set();
+    for (const media of mediaItems) {
+      for (const [key, value] of Object.entries(values)) {
+        if (['_id', '__v', 'singleton', 'createdAt', 'updatedAt'].includes(key)) continue;
+        const result = removeMediaReferences(value, media);
+        if (result.changed) {
+          values[key] = result.value;
+          changedKeys.add(key);
+        }
+      }
+    }
+    if (!changedKeys.size) return;
+    for (const key of changedKeys) content.set(key, values[key]);
+    await content.save();
+  }));
+  await Admin.updateMany(
+    { avatar: { $in: mediaItems.map((media) => media.url) } },
+    { $set: { avatar: '' } }
+  );
+}
+
 const secureUpload = [verifyAccess, verifyCsrf, rateLimits.upload];
 router.post('/upload', ...secureUpload, createMediaUpload(), saveUpload);
 router.post('/upload/video', ...secureUpload, createMediaUpload({ allowVideos: true }), saveUpload);
@@ -195,6 +226,33 @@ router.get('/', verifyAccess, async (req, res, next) => {
   }
 });
 
+router.delete('/', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (_req, res, next) => {
+  try {
+    const mediaItems = await Media.find({}).lean();
+    const { deleted, failed } = await deleteMediaAssets(mediaItems, deleteFromCloudinary);
+    if (!deleted.length) {
+      if (failed.length) {
+        return res.status(207).json({
+          deleted: 0,
+          failed: failed.length,
+          total: mediaItems.length
+        });
+      }
+      return res.json({ deleted: 0, failed: 0, total: 0 });
+    }
+
+    await clearPortfolioReferences(deleted);
+    await Media.deleteMany({ _id: { $in: deleted.map((media) => media._id) } });
+    return res.status(failed.length ? 207 : 200).json({
+      deleted: deleted.length,
+      failed: failed.length,
+      total: mediaItems.length
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.delete('/:id', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (req, res, next) => {
   try {
     const media = await Media.findById(req.params.id);
@@ -205,21 +263,7 @@ router.delete('/:id', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (re
       error.status = 502;
       throw error;
     }
-    await Promise.all([ProContent, PhotoContent].map(async (Model) => {
-      const content = await Model.findOne({ singleton: 'default' });
-      if (!content) return;
-      let changed = false;
-      for (const [key, value] of Object.entries(content.toObject())) {
-        if (['_id', '__v', 'singleton', 'createdAt', 'updatedAt'].includes(key)) continue;
-        const result = removeMediaReferences(value, media);
-        if (result.changed) {
-          content.set(key, result.value);
-          changed = true;
-        }
-      }
-      if (changed) await content.save();
-    }));
-    await Admin.updateMany({ avatar: media.url }, { $set: { avatar: '' } });
+    await clearPortfolioReferences([media]);
     await media.deleteOne();
     return res.status(204).end();
   } catch (error) {

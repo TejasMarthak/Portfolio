@@ -8,7 +8,7 @@ export default function ConfirmDialog({ title, message, onConfirm, onCancel, bus
         <p>{message}</p>
         <div className="dialog-actions">
           <button type="button" className="button button-muted" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button type="button" className="button button-danger" onClick={onConfirm} disabled={busy}>{busy ? 'Working…' : 'Delete'}</button>
+          <button type="button" className="button button-danger" onClick={onConfirm} disabled={busy} autoFocus>{busy ? 'Working…' : 'Delete'}</button>
         </div>
       </section>
     </div>
