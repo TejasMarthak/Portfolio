@@ -155,15 +155,23 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
     }
 
     let disposed = false;
-    const loadedTexture = new THREE.TextureLoader().load(textureUrl, (loaded) => {
-      if (disposed) {
-        loaded.dispose();
-        return;
+    const loadedTexture = new THREE.TextureLoader().load(
+      textureUrl,
+      (loaded) => {
+        if (disposed) {
+          loaded.dispose();
+          return;
+        }
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.anisotropy = 4;
+        loaded.needsUpdate = true;
+        setTexture(loaded);
+      },
+      undefined,
+      (error) => {
+        if (!disposed) console.error('[photo-scene] image texture failed to load', textureUrl, error);
       }
-      loaded.colorSpace = THREE.SRGBColorSpace;
-      loaded.anisotropy = 4;
-      setTexture(loaded);
-    });
+    );
 
     return () => {
       disposed = true;
@@ -204,7 +212,7 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
         onPointerOut={() => { document.body.style.cursor = ''; }}
       >
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial map={texture} color={texture ? '#fff3dc' : '#372418'} toneMapped={false} />
+        <meshBasicMaterial key={texture?.uuid || 'photo-placeholder'} map={texture} color={texture ? '#fff3dc' : '#372418'} toneMapped={false} />
       </mesh>
       <mesh raycast={() => null} position={[0, 0, 0.05]} renderOrder={2}>
         <planeGeometry args={[width, height]} />
