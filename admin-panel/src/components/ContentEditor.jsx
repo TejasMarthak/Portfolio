@@ -9,7 +9,7 @@ import { cloudinaryBackgroundRemovalUrl } from '../../../shared/cloudinaryBackgr
 
 const sectionDefaults = {
   pro: {
-    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], photoURL: '', photoPublicId: '', photoAlt: '', removePhotoBackground: false, showResumeButton: true, resumeButtonText: 'View resume', cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
+    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], photoURL: '', photoPublicId: '', photoAlt: '', removePhotoBackground: false, showResumeButton: true, resumeButtonText: 'View resume', cta1: { text: '', url: '' }, cta2: { text: '', url: '' }, buttons: [] },
     about: { title: '', eyebrow: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', stats: [], tags: [] },
     skills: [],
     projects: [],
@@ -48,7 +48,7 @@ const sectionLabels = {
 
 const fieldLabels = {
   eyebrow: 'Eyebrow', headline: 'Headline', subheadline: 'Subheadline', typingWords: 'Rotating words',
-  cta1: 'Primary button', cta2: 'Secondary button', text: 'Button text', url: 'Link URL',
+  cta1: 'Primary button', cta2: 'Secondary button', buttons: 'Additional hero buttons', text: 'Button text', url: 'Link URL',
   title: 'Title', desc: 'Description', bio: 'Biography', subtitle: 'Subtitle', category: 'Category',
   items: 'Items', name: 'Name', value: 'Value', label: 'Label', tags: 'Tags',
   photoURL: 'Photo', photoPublicId: 'Photo asset ID',   photoAlt: 'Photo alt text', stats: 'Statistics',
@@ -94,6 +94,7 @@ function emptyItem(key, site) {
   if (key === 'clients') return { id: crypto.randomUUID(), name: '', logoURL: '', logoPublicId: '' };
   if (key === 'photos') return { src: '', publicId: '', caption: '' };
   if (key === 'stats') return { label: '', value: '' };
+  if (key === 'buttons') return { text: '', url: '' };
   if (key === 'items') return site === 'pro' ? { name: '' } : '';
   return '';
 }

@@ -169,6 +169,11 @@ export default function Portfolio({ content, settings, canUse3D }) {
   const hobby = content.hobby || {};
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
+  const primaryHeroUrl = hero.cta1?.url || (hero.cta1?.text ? resume.fileURL : '');
+  const secondaryHeroUrl = hero.cta2?.url || (hero.cta2?.text ? photoPortfolioUrl : '');
+  const extraHeroButtons = Array.isArray(hero.buttons)
+    ? hero.buttons.filter((button) => button?.text && button?.url)
+    : [];
   const sectionSettings = settings.sections?.pro || {};
   const isVisible = (id, hasContent) => hasContent && sectionSettings[id] !== false;
   const aboutVisible = isVisible('about', hasRenderableContent(about));
@@ -237,16 +242,23 @@ export default function Portfolio({ content, settings, canUse3D }) {
             <motion.div className="hero-copy" style={reducedMotion ? undefined : { opacity: heroCopyOpacity, y: heroCopyY }}>
               <p className="eyebrow"><span />{hero.eyebrow || 'Independent developer'}</p>
               <h1>{hero.headline || ''}<span className="hero-period">.</span></h1>
-              <p className="hero-subtitle">{hero.subheadline || ''}</p>
-              <TypingWords words={hero.typingWords || []} />
-              <div className="hero-actions">
-                {hero.cta1?.url && <MediaLink className="button button-primary" href={hero.cta1.url} title={hero.cta1.text || 'Portfolio media'}>{hero.cta1.text || ''}<ArrowUpRight size={17} /></MediaLink>}
-                {hero.cta2?.url && <MediaLink className="button button-quiet" href={hero.cta2.url} title={hero.cta2.text || 'Portfolio media'}>{hero.cta2.text || ''}</MediaLink>}
-                {hero.showResumeButton !== false && resume.fileURL && (
-                  <MediaLink className="button button-quiet resume-button" href={resume.fileURL} title="Resume">
-                    <FileText size={16} />{hero.resumeButtonText || 'View resume'}
-                  </MediaLink>
-                )}
+              <div className="hero-details">
+                <p className="hero-subtitle">{hero.subheadline || ''}</p>
+                <TypingWords words={hero.typingWords || []} />
+                <div className="hero-actions">
+                  {primaryHeroUrl && <MediaLink className="button button-primary" href={primaryHeroUrl} title={hero.cta1?.text || 'Portfolio media'}>{hero.cta1?.text || ''}<ArrowUpRight size={17} /></MediaLink>}
+                  {secondaryHeroUrl && <MediaLink className="button button-quiet" href={secondaryHeroUrl} title={hero.cta2?.text || 'Portfolio media'}>{hero.cta2?.text || ''}</MediaLink>}
+                  {extraHeroButtons.map((button, index) => (
+                    <MediaLink key={`${button.text}-${button.url}-${index}`} className="button button-quiet" href={button.url} title={button.text}>
+                      {button.text}<ArrowUpRight size={17} />
+                    </MediaLink>
+                  ))}
+                  {hero.showResumeButton !== false && resume.fileURL && (
+                    <MediaLink className="button button-quiet resume-button" href={resume.fileURL} title="Resume">
+                      <FileText size={16} />{hero.resumeButtonText || 'View resume'}
+                    </MediaLink>
+                  )}
+                </div>
               </div>
               <a className="scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Scroll to explore</a>
             </motion.div>

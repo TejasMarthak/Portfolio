@@ -65,11 +65,11 @@ h1, h2, h3, .photo-hero-copy > p, .story-row p, .about-photo-copy p { overflow-w
 .photo-hero.photo-hero-reduced { min-height: 100svh; }
 .photo-hero.photo-hero-reduced .photo-hero-stage { position: relative; top: auto; }
 .photo-section-stage { position: sticky; z-index: 3; top: 0; width: min(100%, 1200px); height: 100svh; min-height: 100svh; margin: 0 auto; padding: calc(var(--photo-header-height) + 16px) 0 16px; display: flex; flex-direction: column; justify-content: center; overflow: clip; }
-.photo-section-content { flex: 0 0 auto; width: 100%; max-height: calc(100svh - var(--photo-header-height) - 32px); margin-block: auto; padding: clamp(20px, 3.5vw, 44px); overflow: clip; }
+.photo-section-content { flex: 0 0 auto; width: 100%; max-height: calc(100svh - var(--photo-header-height) - 32px); margin-block: auto; padding: clamp(20px, 3.5vw, 44px); overflow: visible; }
 .photo-hero-stage { position: sticky; z-index: 1; top: 0; height: 100svh; min-height: 100svh; padding: 155px clamp(22px, 8vw, 130px) 0; display: flex; align-items: center; overflow: hidden; isolation: isolate; background: #0b0907; }
 .photo-hero-stage::after { position: absolute; z-index: 1; inset: 0; content: ""; pointer-events: none; background: linear-gradient(90deg, #0b0907dd, #0b090766), linear-gradient(0deg, #0b0907 0%, transparent 36%); }
 .photo-hero-media { position: absolute; z-index: 0; inset: -1%; background-position: center; background-size: cover; transform-origin: center; will-change: transform; }
-.photo-hero-copy { position: relative; z-index: 2; width: min(100%, 1120px); margin: 0 auto; padding: clamp(24px, 4vw, 48px); border: 1px solid #f2e9d82b; border-radius: 18px; background: #0b090778; box-shadow: 0 24px 80px #00000045, inset 0 1px #ffffff14; backdrop-filter: blur(16px) saturate(125%); -webkit-backdrop-filter: blur(16px) saturate(125%); }
+.photo-hero-copy { position: relative; z-index: 2; width: min(100%, 1120px); margin: 0 auto; }
 .photo-kicker { color: var(--amber); font-size: 10px; text-transform: uppercase; letter-spacing: .25em; }
 .photo-hero .photo-kicker { font-size: clamp(11px, 1vw, 13px); }
 .photo-hero h1 { max-width: 940px; margin: 20px 0 22px; color: var(--cream); font: italic 500 clamp(62px, 11vw, 146px)/.94 "Fraunces", serif; letter-spacing: -.065em; }
@@ -79,13 +79,13 @@ h1, h2, h3, .photo-hero-copy > p, .story-row p, .about-photo-copy p { overflow-w
 .hero-asset-preload { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .photo-section-heading { position: relative; z-index: 4; width: 100%; margin: 0 auto 26px; padding: 0; }
 .photo-section-heading h2, .about-photo-copy h2 { margin: 13px 0 0; color: var(--cream); font: italic 500 clamp(45px, 7vw, 82px)/1.05 "Fraunces", serif; letter-spacing: -.045em; }
-.masonry-gallery { width: min(100%, 1200px); margin: 0 auto; columns: 3 260px; column-gap: 13px; column-fill: balance; }
-.masonry-item { position: relative; display: block; width: 100%; margin: 0 0 13px; padding: 0; overflow: hidden; break-inside: avoid; border: 0; border-radius: 4px; background: #1b150f; cursor: zoom-in; text-align: left; }
-.masonry-item img { display: block; width: 100%; height: auto; transition: transform .6s cubic-bezier(.2,.8,.2,1), filter .5s ease; }
-.masonry-item:hover img { transform: scale(1.035); filter: brightness(.8); }
-.gallery-caption { position: absolute; inset: auto 9px 9px; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid #f2e9d82b; border-radius: 9px; background: #0b0907a8; box-shadow: 0 10px 28px #00000040, inset 0 1px #ffffff12; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--cream); font: italic 500 19px "Fraunces", serif; opacity: 0; transition: opacity .25s ease; }
-.gallery-caption span { color: var(--amber); font: 10px "Work Sans", sans-serif; letter-spacing: .2em; text-transform: uppercase; }
-.masonry-item:hover .gallery-caption, .masonry-item:focus-visible .gallery-caption { opacity: 1; }
+.masonry-gallery { width: min(100%, 1200px); margin: 0 auto; columns: 3 260px; column-gap: 12px; column-fill: balance; }
+.masonry-item { position: relative; display: block; width: 100%; margin: 0 0 12px; padding: 0; overflow: hidden; break-inside: avoid; border: 0; border-radius: 11px; background: transparent; cursor: zoom-in; text-align: left; }
+.masonry-item img { display: block; width: 100%; height: auto; border-radius: inherit; transition: filter .35s ease; }
+.masonry-item:hover img { filter: brightness(.88); }
+.gallery-caption { position: absolute; inset: auto auto 9px 9px; display: block; width: fit-content; max-width: calc(100% - 18px); padding: 8px 11px; border: 0; border-radius: 8px; background: linear-gradient(90deg, #0b0907d1, #0b090780 78%, #0b090700); box-shadow: none; color: var(--cream); font: italic 500 18px/1.2 "Fraunces", serif; opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .2s ease, transform .2s ease; }
+.gallery-caption span { display: none; }
+.masonry-item:hover .gallery-caption, .masonry-item:focus-visible .gallery-caption { opacity: 1; transform: translateY(0); }
 .stories-list { width: min(100%, 1050px); margin: 0 auto; display: grid; gap: 18px; }
 .story-row { display: grid; grid-template-columns: minmax(180px, .75fr) 1.2fr; gap: clamp(20px, 4vw, 55px); align-items: center; padding: 17px; border: 1px solid #f2e9d82b; border-radius: 14px; background: #0b09077a; box-shadow: 0 18px 55px #00000035, inset 0 1px #ffffff12; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .story-row img { width: 100%; max-height: 300px; object-fit: cover; filter: saturate(.82); }
@@ -177,10 +177,9 @@ h1, h2, h3, .photo-hero-copy > p, .story-row p, .about-photo-copy p { overflow-w
   .photo-section-heading { padding: 10px 0 14px; }
   .photo-hero h1 { font-size: clamp(48px, 15vw, 90px); }
   .photo-section-heading h2, .about-photo-copy h2 { font-size: clamp(38px, 11vw, 62px); }
-  .masonry-gallery { columns: 2 130px; column-gap: 7px; }
-  .masonry-item { margin-bottom: 7px; }
-  .gallery-caption { opacity: 1; padding: 30px 9px 9px; font-size: 15px; }
-  .gallery-caption span { font-size: 8px; }
+  .masonry-gallery { columns: 2 130px; column-gap: 8px; }
+  .masonry-item { margin-bottom: 8px; border-radius: 9px; }
+  .gallery-caption { inset: auto auto 7px 7px; padding: 7px 10px; font-size: 16px; }
   .story-row { grid-template-columns: 1fr; gap: 18px; padding: 12px; }
   .story-row img { max-height: 260px; }
   .video-carousel { width: 100%; gap: 9px; }
