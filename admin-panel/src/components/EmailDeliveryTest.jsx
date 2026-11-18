@@ -17,9 +17,15 @@ export default function EmailDeliveryTest() {
       });
     },
     onSuccess: () => toast.success('FormSubmit accepted the test. Check the configured inbox and Spam.'),
-    onError: (error) => toast.error(error.code
-      ? `Email test failed (${error.code}${error.responseCode ? `/${error.responseCode}` : ''}).`
-      : error.response?.data?.error || 'Email test could not be completed.')
+    onError: (error) => {
+      if (error.code === 'FORMSUBMIT_TIMEOUT') {
+        toast('Email response timed out; it may still arrive. Check your inbox before retrying.');
+        return;
+      }
+      toast.error(error.code
+        ? `Email test failed (${error.code}${error.responseCode ? `/${error.responseCode}` : ''}).`
+        : error.response?.data?.error || 'Email test could not be completed.');
+    }
   });
 
   return (
@@ -34,9 +40,11 @@ export default function EmailDeliveryTest() {
         </button>
       </div>
       <div className="whatsapp-content">
-        {test.isError && (test.error.code || test.error.response?.data?.code) && (
+        {test.isError && test.error.code === 'FORMSUBMIT_TIMEOUT' ? (
+          <p className="whatsapp-footnote" role="status">FormSubmit did not respond in time. The email may still arrive; check your inbox before retrying.</p>
+        ) : test.isError && (test.error.code || test.error.response?.data?.code) ? (
           <EmailTestError error={test.error.response?.data || test.error} />
-        )}
+        ) : null}
         <p className="whatsapp-footnote"><Mail size={12} /> FormSubmit needs a one-time email confirmation on first use. Check Spam too.</p>
       </div>
     </section>
@@ -48,8 +56,10 @@ function EmailTestError({ error }) {
     ? ' Open the FormSubmit confirmation email sent to GMAIL_USER (check Spam) and click its activation link.'
     : error.code === 'FORMSUBMIT_REJECTED'
       ? ' Check that GMAIL_USER is a valid recipient and complete any FormSubmit confirmation.'
-      : error.code === 'FORMSUBMIT_TIMEOUT' || error.code === 'FORMSUBMIT_NETWORK_ERROR'
-        ? ' This browser could not reach FormSubmit over HTTPS. Check your connection and try again.'
+      : error.code === 'FORMSUBMIT_TIMEOUT'
+        ? ' The request may still be processing and the email may still arrive. Check your inbox before retrying.'
+        : error.code === 'FORMSUBMIT_NETWORK_ERROR'
+          ? ' This browser could not reach FormSubmit over HTTPS. Check your connection and try again.'
         : error.code === 'EMAIL_CONFIG_MISSING'
           ? ' Set GMAIL_USER to the inbox that should receive contact notifications. No API key is required.'
           : error.code === 'FORMSUBMIT_RATE_LIMIT'

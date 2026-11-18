@@ -25,6 +25,10 @@ export default function ContactForm() {
         await sendFormSubmit(data.emailDelivery.recipient, data.emailDelivery.fields);
       } catch (error) {
         console.error('[contact] email notification not sent:', error.code || error.name);
+        if (error.code === 'FORMSUBMIT_TIMEOUT') {
+          toast('Your inquiry is saved. Email delivery is taking longer than expected and may still arrive; check your inbox before retrying.');
+          return;
+        }
         toast.error('Your inquiry is saved, but its email notification could not be sent.');
         return;
       }

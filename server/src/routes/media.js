@@ -1,6 +1,7 @@
 const express = require('express');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
+const cloudinary = require('cloudinary').v2;
 const Media = require('../models/Media');
 const Admin = require('../models/Admin');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
@@ -31,6 +32,22 @@ async function fetchPdfSource(url, range) {
     upstream = await request(false);
   }
   return upstream;
+}
+
+function privatePdfDownloadUrl(media, cloudName) {
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!apiKey || !apiSecret) return '';
+
+  const publicId = media.publicId.replace(/\.pdf$/i, '');
+  return cloudinary.utils.private_download_url(publicId, 'pdf', {
+    api_key: apiKey,
+    api_secret: apiSecret,
+    cloud_name: cloudName,
+    resource_type: 'raw',
+    type: 'upload',
+    expires_at: Math.floor(Date.now() / 1000) + 300
+  });
 }
 
 async function inlinePdf(req, res, next) {
@@ -67,7 +84,12 @@ async function inlinePdf(req, res, next) {
     );
 
     const range = req.get('range');
-    const upstream = await fetchPdfSource(source.href, range);
+    let upstream = await fetchPdfSource(source.href, range);
+    if (upstream.status === 401 || upstream.status === 403) {
+      await upstream.body?.cancel();
+      const signedDownloadUrl = privatePdfDownloadUrl(media, cloudName);
+      if (signedDownloadUrl) upstream = await fetchPdfSource(signedDownloadUrl, range);
+    }
     if (![200, 206].includes(upstream.status) || !upstream.body) {
       await upstream.body?.cancel();
       return res.status(502).json({ error: 'PDF could not be loaded from media storage' });

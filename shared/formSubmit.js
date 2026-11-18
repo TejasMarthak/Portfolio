@@ -1,4 +1,4 @@
-const EMAIL_TIMEOUT_MS = 12000;
+const EMAIL_TIMEOUT_MS = 30000;
 
 function createEmailError(code, responseCode) {
   const error = new Error('FormSubmit could not accept the email.');
@@ -15,9 +15,9 @@ function statusErrorCode(status) {
       : 'FORMSUBMIT_REJECTED';
 }
 
-export async function sendFormSubmit(recipient, fields) {
+export async function sendFormSubmit(recipient, fields, { timeoutMs = EMAIL_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response;
   let result;
 
@@ -47,10 +47,11 @@ export async function sendFormSubmit(recipient, fields) {
       );
     }
   } catch (error) {
+    if (controller.signal.aborted || error.name === 'AbortError') {
+      throw createEmailError('FORMSUBMIT_TIMEOUT');
+    }
     if (error.code) throw error;
-    throw createEmailError(error.name === 'AbortError'
-      ? 'FORMSUBMIT_TIMEOUT'
-      : 'FORMSUBMIT_NETWORK_ERROR');
+    throw createEmailError('FORMSUBMIT_NETWORK_ERROR');
   } finally {
     clearTimeout(timeout);
   }
