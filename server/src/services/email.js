@@ -1,4 +1,27 @@
 const EMAIL_TIMEOUT_MS = 12000;
+const CLIENT_URL_ENV_BY_SOURCE = {
+  pro: 'PRO_CLIENT_URL',
+  photo: 'PHOTO_CLIENT_URL',
+  admin: 'ADMIN_CLIENT_URL'
+};
+
+function getClientOrigin(source) {
+  const envKey = CLIENT_URL_ENV_BY_SOURCE[source];
+  if (!envKey || !process.env[envKey]) return null;
+  try {
+    return new URL(process.env[envKey]).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getHttpFailureCode(status) {
+  return status === 429
+    ? 'FORMSUBMIT_RATE_LIMIT'
+    : status >= 500
+      ? 'FORMSUBMIT_UNAVAILABLE'
+      : 'FORMSUBMIT_REJECTED';
+}
 
 function logFailure(errorCode, responseCode) {
   const details = responseCode ? { code: errorCode, responseCode } : { code: errorCode };
@@ -24,6 +47,11 @@ async function sendContactEmail(contact) {
     };
   }
 
+  const origin = getClientOrigin(contact.source);
+  if (!origin) {
+    return logFailure('FORMSUBMIT_ORIGIN_CONFIG_MISSING');
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
   let response;
@@ -32,6 +60,8 @@ async function sendContactEmail(contact) {
     response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
       method: 'POST',
       headers: {
+        Origin: origin,
+        Referer: `${origin}/`,
         Accept: 'application/json',
         'Content-Type': 'application/json'
       },
@@ -50,10 +80,13 @@ async function sendContactEmail(contact) {
       })
     });
     try {
-      result = await response.json();
+      result = JSON.parse(await response.text());
     } catch (error) {
       if (controller.signal.aborted) throw error;
-      return logFailure('FORMSUBMIT_INVALID_RESPONSE', response.status);
+      return logFailure(
+        response.ok ? 'FORMSUBMIT_INVALID_RESPONSE' : getHttpFailureCode(response.status),
+        response.status
+      );
     }
   } catch (error) {
     const errorCode = error.name === 'AbortError'
@@ -74,12 +107,7 @@ async function sendContactEmail(contact) {
   }
 
   if (!response.ok) {
-    const errorCode = response.status === 429
-      ? 'FORMSUBMIT_RATE_LIMIT'
-      : response.status >= 500
-        ? 'FORMSUBMIT_UNAVAILABLE'
-        : 'FORMSUBMIT_REJECTED';
-    return logFailure(errorCode, response.status);
+    return logFailure(getHttpFailureCode(response.status), response.status);
   }
 
   if (result.success === true || result.success === 'true') {

@@ -29,10 +29,14 @@ test('reports missing recipient configuration without attempting to send', async
 
 test('sends email through FormSubmit using the configured recipient', async () => {
   const originalUser = process.env.GMAIL_USER;
+  const originalProUrl = process.env.PRO_CLIENT_URL;
   const originalFetch = global.fetch;
   process.env.GMAIL_USER = 'owner@example.com';
+  process.env.PRO_CLIENT_URL = 'https://pro.example.com/portfolio';
   global.fetch = async (url, options) => {
     assert.equal(url, 'https://formsubmit.co/ajax/owner%40example.com');
+    assert.equal(options.headers.Origin, 'https://pro.example.com');
+    assert.equal(options.headers.Referer, 'https://pro.example.com/');
     assert.equal(options.headers.Accept, 'application/json');
     assert.equal(options.headers['Content-Type'], 'application/json');
     const body = JSON.parse(options.body);
@@ -55,16 +59,20 @@ test('sends email through FormSubmit using the configured recipient', async () =
   } finally {
     if (originalUser === undefined) delete process.env.GMAIL_USER;
     else process.env.GMAIL_USER = originalUser;
+    if (originalProUrl === undefined) delete process.env.PRO_CLIENT_URL;
+    else process.env.PRO_CLIENT_URL = originalProUrl;
     global.fetch = originalFetch;
   }
 });
 
 test('reports first-time FormSubmit confirmation without exposing provider details', async () => {
   const originalUser = process.env.GMAIL_USER;
+  const originalProUrl = process.env.PRO_CLIENT_URL;
   const originalFetch = global.fetch;
   const originalConsoleError = console.error;
   const errors = [];
   process.env.GMAIL_USER = 'owner@example.com';
+  process.env.PRO_CLIENT_URL = 'https://pro.example.com';
   console.error = (...args) => errors.push(args);
   global.fetch = async () => new Response(JSON.stringify({
     success: false,
@@ -87,6 +95,8 @@ test('reports first-time FormSubmit confirmation without exposing provider detai
   } finally {
     if (originalUser === undefined) delete process.env.GMAIL_USER;
     else process.env.GMAIL_USER = originalUser;
+    if (originalProUrl === undefined) delete process.env.PRO_CLIENT_URL;
+    else process.env.PRO_CLIENT_URL = originalProUrl;
     global.fetch = originalFetch;
     console.error = originalConsoleError;
   }
@@ -94,10 +104,12 @@ test('reports first-time FormSubmit confirmation without exposing provider detai
 
 test('does not expose FormSubmit response details when the provider rejects a request', async () => {
   const originalUser = process.env.GMAIL_USER;
+  const originalProUrl = process.env.PRO_CLIENT_URL;
   const originalFetch = global.fetch;
   const originalConsoleError = console.error;
   const errors = [];
   process.env.GMAIL_USER = 'owner@example.com';
+  process.env.PRO_CLIENT_URL = 'https://pro.example.com';
   console.error = (...args) => errors.push(args);
   global.fetch = async () => new Response(JSON.stringify({
     success: false,
@@ -119,6 +131,8 @@ test('does not expose FormSubmit response details when the provider rejects a re
   } finally {
     if (originalUser === undefined) delete process.env.GMAIL_USER;
     else process.env.GMAIL_USER = originalUser;
+    if (originalProUrl === undefined) delete process.env.PRO_CLIENT_URL;
+    else process.env.PRO_CLIENT_URL = originalProUrl;
     global.fetch = originalFetch;
     console.error = originalConsoleError;
   }
@@ -126,10 +140,12 @@ test('does not expose FormSubmit response details when the provider rejects a re
 
 test('rejects malformed FormSubmit responses safely', async () => {
   const originalUser = process.env.GMAIL_USER;
+  const originalProUrl = process.env.PRO_CLIENT_URL;
   const originalFetch = global.fetch;
   const originalConsoleError = console.error;
   const errors = [];
   process.env.GMAIL_USER = 'owner@example.com';
+  process.env.PRO_CLIENT_URL = 'https://pro.example.com';
   console.error = (...args) => errors.push(args);
   global.fetch = async () => new Response('null', { status: 200 });
 
@@ -148,6 +164,41 @@ test('rejects malformed FormSubmit responses safely', async () => {
   } finally {
     if (originalUser === undefined) delete process.env.GMAIL_USER;
     else process.env.GMAIL_USER = originalUser;
+    if (originalProUrl === undefined) delete process.env.PRO_CLIENT_URL;
+    else process.env.PRO_CLIENT_URL = originalProUrl;
+    global.fetch = originalFetch;
+    console.error = originalConsoleError;
+  }
+});
+
+test('reports non-JSON HTTP rejections by status instead of as malformed JSON', async () => {
+  const originalUser = process.env.GMAIL_USER;
+  const originalProUrl = process.env.PRO_CLIENT_URL;
+  const originalFetch = global.fetch;
+  const originalConsoleError = console.error;
+  const errors = [];
+  process.env.GMAIL_USER = 'owner@example.com';
+  process.env.PRO_CLIENT_URL = 'https://pro.example.com';
+  console.error = (...args) => errors.push(args);
+  global.fetch = async () => new Response('<html>Forbidden</html>', { status: 403 });
+
+  try {
+    const result = await sendContactEmail({ source: 'pro', subject: 'Test' });
+    assert.deepEqual(result, {
+      sent: false,
+      error: 'Email provider could not accept the notification.',
+      errorCode: 'FORMSUBMIT_REJECTED',
+      responseCode: 403
+    });
+    assert.deepEqual(errors, [[
+      '[email] notification failed:',
+      { code: 'FORMSUBMIT_REJECTED', responseCode: 403 }
+    ]]);
+  } finally {
+    if (originalUser === undefined) delete process.env.GMAIL_USER;
+    else process.env.GMAIL_USER = originalUser;
+    if (originalProUrl === undefined) delete process.env.PRO_CLIENT_URL;
+    else process.env.PRO_CLIENT_URL = originalProUrl;
     global.fetch = originalFetch;
     console.error = originalConsoleError;
   }

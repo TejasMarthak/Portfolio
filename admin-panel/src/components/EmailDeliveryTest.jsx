@@ -37,7 +37,9 @@ function EmailTestError({ error }) {
   const guidance = error.code === 'FORMSUBMIT_CONFIRMATION_REQUIRED'
     ? ' Open the FormSubmit confirmation email sent to GMAIL_USER (check Spam) and click its activation link.'
     : error.code === 'FORMSUBMIT_REJECTED'
-      ? ' Check that GMAIL_USER is a valid recipient and complete any FormSubmit confirmation.'
+      ? error.responseCode === 403
+        ? ' FormSubmit returned 403. Check the recipient confirmation and the API client URL environment settings.'
+        : ' Check that GMAIL_USER is a valid recipient and complete any FormSubmit confirmation.'
       : error.code === 'FORMSUBMIT_TIMEOUT' || error.code === 'FORMSUBMIT_NETWORK_ERROR'
         ? ' The API could not reach FormSubmit over HTTPS. Check the API logs and outbound network access.'
         : error.code === 'EMAIL_CONFIG_MISSING'
