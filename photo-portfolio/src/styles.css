@@ -38,6 +38,14 @@ a { color: inherit; text-decoration: none; }
 .darkroom-placeholder { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 44%, #26180d, #0b0907 67%); }
 .darkroom-halo { position: absolute; width: min(60vw, 680px); height: min(52vw, 490px); left: 50%; top: 44%; border: 1px solid #e8a83833; transform: translate(-50%, -50%) perspective(450px) rotateX(56deg); box-shadow: 0 0 110px #e8a83820, inset 0 0 70px #ff6b4a12; }
 .darkroom-curtain { position: absolute; inset: -20% -30% 0; background: linear-gradient(90deg, transparent, #e8a83808 48%, transparent 52%), linear-gradient(transparent 65%, #0b0907); filter: blur(25px); }
+.light-field-fallback { position: fixed; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; perspective: 1000px; background: radial-gradient(ellipse at 55% 42%, #34211273, transparent 68%); }
+.light-field-fallback::after { position: absolute; inset: 0; content: ""; background: linear-gradient(180deg, #0b090722, transparent 38%, #0b090755); }
+.light-field-fallback-shaft { position: absolute; top: -25%; left: 43%; width: 34%; height: 150%; transform: rotate(12deg); transform-origin: top center; background: linear-gradient(90deg, transparent, #e8a8380b 30%, #ffcc7622 50%, #e8a8380b 70%, transparent); filter: blur(13px); animation: light-field-drift 12s ease-in-out infinite alternate; }
+.light-field-fallback-photos { position: absolute; inset: 0; transform-style: preserve-3d; }
+.light-field-fallback-photo { position: absolute; margin: 0; padding: 5px; border: 1px solid #e8a83845; background: #21180ff0; box-shadow: 0 18px 65px #0009, 0 0 32px #e8a83816; backface-visibility: hidden; transform-style: preserve-3d; }
+.light-field-fallback-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; filter: saturate(.8) brightness(.82); }
+.light-field-fallback-photo > span { position: absolute; inset: 5px; pointer-events: none; background: linear-gradient(135deg, #e8a83812, transparent 48%, #ff6b4a12); mix-blend-mode: screen; }
+@keyframes light-field-drift { from { opacity: .55; transform: rotate(12deg) translateX(-8%); } to { opacity: 1; transform: rotate(12deg) translateX(8%); } }
 .photo-topbar { position: fixed; z-index: 6; top: 0; left: 0; right: 0; height: 78px; padding: 0 clamp(22px, 5vw, 84px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f2e9d812; background: linear-gradient(#0b0907d9, #0b09077a); backdrop-filter: blur(18px); }
 .photo-mark { display: inline-flex; flex: 0 0 auto; align-items: center; width: auto; min-width: 0; height: auto; padding: 0; border: 0; border-radius: 0; color: var(--cream); background: transparent; font: italic 600 clamp(17px, 1.7vw, 22px)/1 "Fraunces", serif; letter-spacing: -.035em; white-space: nowrap; transition: color .2s ease; }
 .photo-mark:hover { color: var(--amber); }
@@ -181,5 +189,6 @@ h1, h2, h3, .photo-hero-copy > p, .story-row p, .about-photo-copy p { overflow-w
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .light-field-fallback-shaft { animation: none; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

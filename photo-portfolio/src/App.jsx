@@ -9,6 +9,7 @@ import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
 import Preloader from './components/Preloader';
+import LightFieldFallback from './scene/LightFieldFallback';
 import '../../shared/media-viewer.css';
 import './styles.css';
 
@@ -108,6 +109,9 @@ export default function App() {
         <link rel="canonical" href={window.location.href.split('#')[0]} />
         <script type="application/ld+json">{JSON.stringify(gallerySchema).replace(/</g, '\\u003c')}</script>
       </Helmet>
+      {!is3DCapable && hasContent && scenePhotos.length > 0 && (
+        <LightFieldFallback photos={scenePhotos} reducedMotion={Boolean(reducedMotion)} />
+      )}
       {is3DCapable && hasContent && scenePhotos.length > 0 && (
         <div className="darkroom-layer">
           <Suspense fallback={<ScenePlaceholder />}>

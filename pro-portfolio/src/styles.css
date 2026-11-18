@@ -133,6 +133,17 @@ h1 { margin-bottom: 20px; max-width: 950px; font-size: clamp(68px, 11vw, 150px);
 .page-mode .journey-section { min-height: 90svh; }
 .page-mode .hero-section { min-height: 100svh; }
 .page-mode .section-panel { background: #0b0d17e8; }
+.build-plane-fallback { position: fixed; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; perspective: 900px; background: radial-gradient(ellipse at 50% 38%, #17142c88, transparent 62%); }
+.build-fallback-glow { position: absolute; width: 58vw; aspect-ratio: 1; left: 50%; top: 46%; border-radius: 50%; background: radial-gradient(circle, #7c5cff24, #33f2c70a 42%, transparent 70%); filter: blur(12px); transform: translate(-50%, -50%); }
+.build-fallback-connections, .build-fallback-nodes { position: absolute; inset: 0; width: 100%; height: 100%; }
+.build-fallback-connections { overflow: visible; }
+.build-fallback-connections line { stroke: #7c5cff; stroke-width: .16; stroke-dasharray: 1 1.5; filter: drop-shadow(0 0 2px #33f2c7); opacity: .48; }
+.build-fallback-nodes { transform-style: preserve-3d; }
+.build-fallback-node { position: absolute; display: flex; align-items: center; gap: 8px; transform-style: preserve-3d; }
+.build-fallback-node-light { display: block; width: 9px; height: 9px; flex: 0 0 auto; border: 1px solid #33f2c7; border-radius: 50%; background: #33f2c7; box-shadow: 0 0 8px 3px #33f2c766, 0 0 28px #7c5cffaa; }
+.build-fallback-node:nth-child(even) .build-fallback-node-light { border-color: #b19dff; background: #7c5cff; box-shadow: 0 0 8px 3px #7c5cff88, 0 0 28px #7c5cffaa; }
+.build-fallback-node-label { max-width: 34vw; overflow: hidden; color: #edeaff; font: 600 clamp(9px, 1.1vw, 12px) "Space Grotesk", sans-serif; letter-spacing: .07em; text-overflow: ellipsis; text-shadow: 0 0 12px #33f2c7; text-transform: uppercase; white-space: nowrap; }
+.build-fallback-grid { position: absolute; inset: 58% -15% -34%; transform: perspective(350px) rotateX(58deg); transform-origin: center top; background-image: linear-gradient(#7c5cff2b 1px, transparent 1px), linear-gradient(90deg, #7c5cff2b 1px, transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(transparent, #000 18%, transparent); }
 
 @media (max-width: 760px) {
   .topbar { height: 65px; padding: 0 17px; }

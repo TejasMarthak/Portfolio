@@ -8,6 +8,7 @@ import { api } from './api';
 import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
 import Portfolio from './components/Portfolio';
+import BuildPlaneFallback from './scene/BuildPlaneFallback';
 import '../../shared/media-viewer.css';
 import './styles.css';
 
@@ -89,6 +90,7 @@ export default function App() {
         <link rel="canonical" href={window.location.href.split('#')[0]} />
         <script type="application/ld+json">{JSON.stringify(personSchema).replace(/</g, '\\u003c')}</script>
       </Helmet>
+      {!is3DCapable && hasContent && <BuildPlaneFallback content={sceneContent} reducedMotion={Boolean(reducedMotion)} />}
       {is3DCapable && hasContent && (
         <div className="scene-layer" aria-hidden="true">
           <Suspense fallback={<ScenePlaceholder />}>

@@ -1,4 +1,8 @@
 export function canRender3D() {
+  const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
+  const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  if (isTouchDevice() && (lowCpu || lowMemory)) return false;
+
   let context;
   try {
     context = document.createElement('canvas').getContext('webgl2');
@@ -12,7 +16,9 @@ export function canRender3D() {
 }
 
 export function isTouchDevice() {
-  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  const hasTouchInput = typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0;
+  return coarsePointer || hasTouchInput;
 }
 
 export function getScenePixelRatio() {
