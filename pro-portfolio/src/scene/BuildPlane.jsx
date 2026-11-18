@@ -12,12 +12,12 @@ function CameraRig({ reducedMotion }) {
   const { camera } = useThree();
   const progress = useRef({ value: 0 });
   const destinations = useMemo(() => [
-    new THREE.Vector3(0, 1, 11),
-    new THREE.Vector3(1.5, 1.2, 6),
-    new THREE.Vector3(-1, 1.4, 1),
-    new THREE.Vector3(1, 1.5, -4),
-    new THREE.Vector3(-1, 1.2, -9),
-    new THREE.Vector3(0, 1.6, -14)
+    new THREE.Vector3(0, 1, 8),
+    new THREE.Vector3(1.5, 1.2, 3),
+    new THREE.Vector3(-1, 1.4, -2),
+    new THREE.Vector3(1, 1.5, -7),
+    new THREE.Vector3(-1, 1.2, -12),
+    new THREE.Vector3(0, 1.6, -17)
   ], []);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ function CameraRig({ reducedMotion }) {
     const index = Math.min(Math.floor(position), destinations.length - 2);
     const target = destinations[index].clone().lerp(destinations[index + 1], position - index);
     camera.position.lerp(target, reducedMotion ? 1 : 0.075);
-    camera.lookAt(0, 0, camera.position.z - 7);
+    camera.lookAt(0, 0, camera.position.z - 4);
   });
 
   return null;
@@ -64,12 +64,16 @@ function Terrain() {
   );
 }
 
-function StackNode({ item, index }) {
+function stackPosition(index, total) {
   const x = Math.sin(index * 2.4) * 3.2;
   const y = 0.5 + (index % 4) * 0.65;
-  const z = -index * 2.35 - 1;
+  const z = -1 - (total > 1 ? (index / (total - 1)) * 24 : 0);
+  return [x, y, z];
+}
+
+function StackNode({ item, index, total }) {
   return (
-    <group position={[x, y, z]}>
+    <group position={stackPosition(index, total)}>
       <mesh>
         <icosahedronGeometry args={[0.16 + (index % 3) * 0.06, 1]} />
         <meshStandardMaterial color={index % 2 ? '#33f2c7' : '#7c5cff'} emissive={index % 2 ? '#16775f' : '#35206f'} emissiveIntensity={2.2} />
@@ -83,14 +87,10 @@ function StackNode({ item, index }) {
 
 function Network({ items = [] }) {
   const nodes = items.slice(0, 28);
-  const points = nodes.map((_, index) => [
-    Math.sin(index * 2.4) * 3.2,
-    0.5 + (index % 4) * 0.65,
-    -index * 2.35 - 1
-  ]);
+  const points = nodes.map((_, index) => stackPosition(index, nodes.length));
   return (
     <>
-      {nodes.map((item, index) => <StackNode key={`${item.name || item.title}-${index}`} item={item} index={index} />)}
+      {nodes.map((item, index) => <StackNode key={`${item.name || item.title}-${index}`} item={item} index={index} total={nodes.length} />)}
       {points.slice(1).map((point, index) => (
         <Line key={`link-${index}`} points={[points[index], point]} color={index % 2 ? '#33f2c7' : '#7c5cff'} transparent opacity={0.35} lineWidth={1} />
       ))}
@@ -121,7 +121,7 @@ function World({ content, reducedMotion }) {
 
 export default function BuildPlane({ content, reducedMotion }) {
   return (
-    <Canvas camera={{ position: [0, 1, 11], fov: 58 }} dpr={[1, getScenePixelRatio()]} frameloop={reducedMotion ? 'demand' : 'always'} gl={{ antialias: false, powerPreference: 'high-performance' }}>
+    <Canvas camera={{ position: [0, 1, 8], fov: 58 }} dpr={[1, getScenePixelRatio()]} frameloop={reducedMotion ? 'demand' : 'always'} gl={{ antialias: false, powerPreference: 'high-performance' }}>
       <Suspense fallback={<mesh><icosahedronGeometry args={[0.6, 1]} /><meshBasicMaterial color="#7c5cff" wireframe /></mesh>}>
         <World content={content} reducedMotion={reducedMotion} />
       </Suspense>

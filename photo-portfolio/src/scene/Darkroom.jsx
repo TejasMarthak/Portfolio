@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -12,6 +11,7 @@ import { getScenePixelRatio, isTouchDevice } from '../../../shared/deviceRenderi
 gsap.registerPlugin(ScrollTrigger);
 
 const CAMERA_FOV = 50;
+const CONTACT_SCENE_CLEARANCE = 350;
 
 function cameraDistanceFor(aspect) {
   const viewHeightAtUnit = 2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
@@ -46,7 +46,10 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
     if (reducedMotion) return undefined;
     const journey = document.getElementById('darkroom-journey');
     const startTrigger = document.getElementById(startSection) || journey;
-    const endTrigger = document.getElementById('contact') || journey;
+    const endTrigger = document.querySelector('#contact .photo-contact-form') ||
+      document.getElementById('contact') ||
+      document.querySelector('.photo-footer') ||
+      journey;
     if (!startTrigger || !endTrigger) return undefined;
     const tween = gsap.to(progress.current, {
       value: 1,
@@ -55,15 +58,24 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
         trigger: startTrigger,
         start: () => `top top+=${document.querySelector('.photo-topbar')?.offsetHeight || 78}`,
         endTrigger,
-        end: () => `top top+=${document.querySelector('.photo-topbar')?.offsetHeight || 78}`,
+        end: () => `top bottom+=${CONTACT_SCENE_CLEARANCE}`,
         scrub: 1.2,
         invalidateOnRefresh: true
       }
     });
-    const resizeObserver = new ResizeObserver(() => ScrollTrigger.refresh());
-    resizeObserver.observe(journey);
+    const refresh = () => ScrollTrigger.refresh();
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(refresh);
+      resizeObserver.observe(journey);
+      resizeObserver.observe(startTrigger);
+      resizeObserver.observe(endTrigger);
+    } else {
+      window.addEventListener('resize', refresh);
+    }
     return () => {
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', refresh);
       tween.scrollTrigger?.kill();
       tween.kill();
     };
@@ -113,28 +125,50 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
 
 function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
   const textureUrl = cloudinaryUrl(photo.src, isTouchDevice() ? 800 : 1200);
-  const texture = useTexture(textureUrl);
+  const [texture, setTexture] = useState(null);
+  const [nearCamera, setNearCamera] = useState(false);
+  const nearCameraRef = useRef(false);
   const group = useRef();
-  const { size } = useThree();
+  const { camera, size } = useThree();
   const viewportAspect = size.width / size.height;
   const position = photoPosition(index, viewportAspect);
-  const aspect = texture.image?.width && texture.image?.height ? texture.image.width / texture.image.height : 1.4;
   const fov = THREE.MathUtils.degToRad(CAMERA_FOV);
   const cameraDistance = cameraDistanceFor(viewportAspect);
+  const aspect = texture?.image?.width && texture?.image?.height ? texture.image.width / texture.image.height : 1.4;
   const frameHeight = 2 * Math.tan(fov / 2) * cameraDistance * 0.82;
   const frameWidth = frameHeight * viewportAspect * (viewportAspect > 1.1 ? 0.56 : 0.84);
   const width = Math.min(frameWidth, frameHeight * aspect);
   const height = width / aspect;
 
   useEffect(() => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
+    if (!nearCamera) {
+      setTexture(null);
+      return undefined;
+    }
+
+    let disposed = false;
+    const loadedTexture = new THREE.TextureLoader().load(textureUrl, (loaded) => {
+      if (disposed) {
+        loaded.dispose();
+        return;
+      }
+      loaded.colorSpace = THREE.SRGBColorSpace;
+      loaded.anisotropy = 4;
+      setTexture(loaded);
+    });
+
     return () => {
-      useTexture.clear(textureUrl);
-      texture.dispose();
-      document.body.style.cursor = '';
+      disposed = true;
+      loadedTexture.dispose();
     };
-  }, [texture, textureUrl]);
+  }, [nearCamera, textureUrl]);
+
+  useFrame(() => {
+    const shouldLoad = active || Math.abs(camera.position.z - position[2]) < cameraDistance + 5;
+    if (shouldLoad === nearCameraRef.current) return;
+    nearCameraRef.current = shouldLoad;
+    setNearCamera(shouldLoad);
+  });
 
   useFrame(({ clock }) => {
     if (reducedMotion || !group.current || active) return;
@@ -162,7 +196,7 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
         onPointerOut={() => { document.body.style.cursor = ''; }}
       >
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial map={texture} color="#fff3dc" toneMapped={false} />
+        <meshBasicMaterial map={texture} color={texture ? '#fff3dc' : '#372418'} toneMapped={false} />
       </mesh>
       <mesh raycast={() => null} position={[0, 0, 0.05]} renderOrder={2}>
         <planeGeometry args={[width, height]} />
@@ -231,6 +265,60 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
   const [focusedIndex, setFocusedIndex] = useState(null);
   const [fitPhotoToScreen, setFitPhotoToScreen] = useState(false);
   const visiblePhotos = useMemo(() => photos.filter((photo) => photo.src), [photos]);
+
+  useEffect(() => {
+    if (reducedMotion) return undefined;
+    const canvas = document.querySelector('.darkroom-layer canvas');
+    const startTrigger = document.getElementById(startSection);
+    const endTrigger = document.querySelector('#contact .photo-contact-form') ||
+      document.getElementById('contact') ||
+      document.querySelector('.photo-footer');
+    if (!canvas || !startTrigger || !endTrigger) return undefined;
+
+    const topbarHeight = () => document.querySelector('.photo-topbar')?.offsetHeight || 78;
+    gsap.set(canvas, { opacity: 0 });
+    const reveal = gsap.to(canvas, {
+      opacity: 1,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: startTrigger,
+        start: () => `top top+=${topbarHeight()}`,
+        end: () => `top top-=${Math.round(topbarHeight() * 1.5)}`,
+        scrub: true,
+        invalidateOnRefresh: true
+      }
+    });
+    const hide = gsap.to(canvas, {
+      opacity: 0,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: endTrigger,
+        start: () => `top bottom+=${CONTACT_SCENE_CLEARANCE}`,
+        end: 'top bottom',
+        scrub: true,
+        invalidateOnRefresh: true
+      }
+    });
+    const refresh = () => ScrollTrigger.refresh();
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(refresh);
+      resizeObserver.observe(startTrigger);
+      resizeObserver.observe(endTrigger);
+    } else {
+      window.addEventListener('resize', refresh);
+    }
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', refresh);
+      reveal.scrollTrigger?.kill();
+      reveal.kill();
+      hide.scrollTrigger?.kill();
+      hide.kill();
+      gsap.set(canvas, { clearProps: 'opacity' });
+    };
+  }, [reducedMotion, startSection]);
 
   useEffect(() => {
     if (focusedIndex == null) return undefined;

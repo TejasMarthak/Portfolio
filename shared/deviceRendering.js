@@ -1,8 +1,4 @@
 export function canRender3D() {
-  const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
-  const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
-  if (isTouchDevice() && (lowCpu || lowMemory)) return false;
-
   let context;
   try {
     context = document.createElement('canvas').getContext('webgl2');
