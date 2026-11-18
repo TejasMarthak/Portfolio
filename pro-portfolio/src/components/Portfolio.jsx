@@ -170,9 +170,9 @@ export default function Portfolio({ content, settings, canUse3D }) {
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
   const primaryHeroUrl = hero.cta1?.url || (hero.cta1?.text ? resume.fileURL : '');
-  const secondaryHeroUrl = hero.cta2?.url || (hero.cta2?.text ? photoPortfolioUrl : '');
+  const secondaryHeroUrl = hero.cta2?.url || '';
   const extraHeroButtons = Array.isArray(hero.buttons)
-    ? hero.buttons.filter((button) => button?.text && button?.url)
+    ? hero.buttons.filter((button) => button?.text)
     : [];
   const sectionSettings = settings.sections?.pro || {};
   const isVisible = (id, hasContent) => hasContent && sectionSettings[id] !== false;
@@ -246,8 +246,8 @@ export default function Portfolio({ content, settings, canUse3D }) {
                 <p className="hero-subtitle">{hero.subheadline || ''}</p>
                 <TypingWords words={hero.typingWords || []} />
                 <div className="hero-actions">
-                  {primaryHeroUrl && <MediaLink className="button button-primary" href={primaryHeroUrl} title={hero.cta1?.text || 'Portfolio media'}>{hero.cta1?.text || ''}<ArrowUpRight size={17} /></MediaLink>}
-                  {secondaryHeroUrl && <MediaLink className="button button-quiet" href={secondaryHeroUrl} title={hero.cta2?.text || 'Portfolio media'}>{hero.cta2?.text || ''}</MediaLink>}
+                  {hero.cta1?.text && <MediaLink className="button button-primary" href={primaryHeroUrl} title={hero.cta1.text}>{hero.cta1.text}<ArrowUpRight size={17} /></MediaLink>}
+                  {hero.cta2?.text && <MediaLink className="button button-quiet" href={secondaryHeroUrl} title={hero.cta2.text}>{hero.cta2.text}</MediaLink>}
                   {extraHeroButtons.map((button, index) => (
                     <MediaLink key={`${button.text}-${button.url}-${index}`} className="button button-quiet" href={button.url} title={button.text}>
                       {button.text}<ArrowUpRight size={17} />
