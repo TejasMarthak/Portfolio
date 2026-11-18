@@ -1,125 +1,92 @@
-async function sendContactEmail(contact) {
-  const gmailUser = String(process.env.GMAIL_USER || '').trim();
-  const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
-  const emailFrom = String(process.env.EMAIL_FROM || '').trim();
-  if (!gmailUser || (!resendApiKey && !String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, ''))) {
-    const missingSettings = [
-      !gmailUser && 'GMAIL_USER',
-      !resendApiKey && !String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '') && 'GMAIL_APP_PASSWORD'
-    ].filter(Boolean);
-    const error = `Missing ${missingSettings.join(' and ')}`;
-    console.error('[email] notification skipped:', error);
-    return { sent: false, error, errorCode: 'EMAIL_CONFIG_MISSING' };
-  }
-  if (resendApiKey && !emailFrom) {
-    const error = 'EMAIL_FROM is required when RESEND_API_KEY is configured';
-    console.error('[email] notification skipped:', error);
-    return { sent: false, error, errorCode: 'EMAIL_CONFIG_MISSING' };
-  }
+const EMAIL_TIMEOUT_MS = 12000;
 
-  const message = createMessage(contact);
-  if (resendApiKey) return sendWithResend(message, gmailUser, emailFrom, resendApiKey);
-  return sendWithGmailSmtp(message, gmailUser);
-}
+function logFailure(errorCode, responseCode) {
+  const details = responseCode ? { code: errorCode, responseCode } : { code: errorCode };
+  console.error('[email] notification failed:', details);
 
-function createMessage(contact) {
-  const color = contact.source === 'photo' ? '#e8a838' : '#7c5cff';
-  const fields = ['name', 'email', 'phone', 'subject', 'projectType', 'message'];
-  const rows = fields.filter((key) => contact[key]).map((key) =>
-    `<tr><th align="left">${key}</th><td>${escapeHtml(contact[key])}</td></tr>`
-  ).join('');
-  return {
-    replyTo: contact.email,
-    subject: `[${contact.source}] ${contact.subject}`,
-    html: `<div style="font-family:Arial,sans-serif;color:#222"><h2 style="background:${color};padding:20px;color:white">New ${escapeHtml(contact.source)} portfolio message</h2><table>${rows}</table><p>Received ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</p></div>`
+  const result = {
+    sent: false,
+    error: 'Email provider could not accept the notification.',
+    errorCode
   };
+  if (responseCode) result.responseCode = responseCode;
+  return result;
 }
 
-async function sendWithResend(message, recipient, from, apiKey) {
+async function sendContactEmail(contact) {
+  const recipient = String(process.env.GMAIL_USER || '').trim();
+  if (!recipient) {
+    console.error('[email] notification skipped:', 'Missing GMAIL_USER');
+    return {
+      sent: false,
+      error: 'Missing GMAIL_USER',
+      errorCode: 'EMAIL_CONFIG_MISSING'
+    };
+  }
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
+  let response;
+  let result;
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
         'Content-Type': 'application/json'
       },
+      signal: controller.signal,
       body: JSON.stringify({
-        from,
-        to: [recipient],
-        reply_to: message.replyTo,
-        subject: message.subject,
-        html: message.html
-      }),
-      signal: controller.signal
+        _subject: `[${contact.source || 'portfolio'}] ${contact.subject || 'New contact request'}`,
+        _replyto: contact.email || recipient,
+        _template: 'table',
+        source: contact.source || '',
+        name: contact.name || '',
+        email: contact.email || '',
+        phone: contact.phone || '',
+        subject: contact.subject || '',
+        projectType: contact.projectType || '',
+        message: contact.message || ''
+      })
     });
-    if (!response.ok) {
-      const errorCode = response.status === 401
-        ? 'EMAIL_API_AUTH'
-        : response.status === 403 || response.status === 422
-          ? 'EMAIL_SENDER_REJECTED'
-          : response.status === 429
-            ? 'EMAIL_RATE_LIMIT'
-            : response.status >= 500
-              ? 'EMAIL_API_UNAVAILABLE'
-              : 'EMAIL_API_REJECTED';
-      return logEmailFailure(errorCode, response.status);
+    try {
+      result = await response.json();
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      return logFailure('FORMSUBMIT_INVALID_RESPONSE', response.status);
     }
-    return { sent: true };
   } catch (error) {
-    const errorCode = controller.signal.aborted
-      ? 'EMAIL_API_TIMEOUT'
-      : /^[A-Z0-9_]{1,40}$/.test(String(error.cause?.code || error.code || ''))
-        ? String(error.cause?.code || error.code)
-        : 'EMAIL_API_FAILED';
-    return logEmailFailure(errorCode);
+    const errorCode = error.name === 'AbortError'
+      ? 'FORMSUBMIT_TIMEOUT'
+      : 'FORMSUBMIT_NETWORK_ERROR';
+    return logFailure(errorCode);
   } finally {
     clearTimeout(timeout);
   }
-}
 
-async function sendWithGmailSmtp(message, gmailUser) {
-  try {
-    const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '');
-    const nodemailer = await import('nodemailer');
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
-      auth: { user: gmailUser, pass: gmailAppPassword }
-    });
-    await transporter.sendMail({
-      from: gmailUser,
-      to: gmailUser,
-      replyTo: message.replyTo,
-      subject: message.subject,
-      html: message.html
-    });
-    return { sent: true };
-  } catch (error) {
-    const errorCode = /^[A-Z0-9_]{1,40}$/.test(String(error.code || error.name || ''))
-      ? String(error.code || error.name)
-      : 'EMAIL_SEND_FAILED';
-    return logEmailFailure(errorCode, Number.isInteger(error.responseCode) ? error.responseCode : undefined);
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return logFailure('FORMSUBMIT_INVALID_RESPONSE', response.status);
   }
-}
 
-function logEmailFailure(errorCode, responseCode) {
-  console.error('[email] notification failed:', { code: errorCode, responseCode });
-  return {
-    sent: false,
-    error: 'Email provider could not accept the notification.',
-    errorCode,
-    responseCode
-  };
-}
+  const message = typeof result.message === 'string' ? result.message : '';
+  if (/confirm|activat|verif/i.test(message)) {
+    return logFailure('FORMSUBMIT_CONFIRMATION_REQUIRED', response.status);
+  }
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[char]));
+  if (!response.ok) {
+    const errorCode = response.status === 429
+      ? 'FORMSUBMIT_RATE_LIMIT'
+      : response.status >= 500
+        ? 'FORMSUBMIT_UNAVAILABLE'
+        : 'FORMSUBMIT_REJECTED';
+    return logFailure(errorCode, response.status);
+  }
+
+  if (result.success === true || result.success === 'true') {
+    return { sent: true };
+  }
+
+  return logFailure('FORMSUBMIT_REJECTED', response.status);
 }
 
 module.exports = { sendContactEmail };

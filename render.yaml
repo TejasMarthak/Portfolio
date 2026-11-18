@@ -47,8 +47,6 @@ services:
         sync: false
       - key: GMAIL_USER
         sync: false
-      - key: GMAIL_APP_PASSWORD
-        sync: false
       - key: YOUR_WHATSAPP_JID
         sync: false
       - key: PRO_CLIENT_URL
