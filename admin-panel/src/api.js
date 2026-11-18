@@ -30,6 +30,17 @@ api.interceptors.response.use(
   },
   (error) => {
     const requestUrl = error.config?.url || '';
+    if (error.response?.status === 403 &&
+        error.response.data?.error === 'Request could not be verified' &&
+        error.config && !error.config._csrfRetried) {
+      error.config._csrfRetried = true;
+      return api.get('/api/auth/me').then((response) => {
+        csrfToken = response.data?.csrfToken || readCookie('csrfToken');
+        if (!csrfToken) return Promise.reject(error);
+        error.config.headers.set('X-CSRF-Token', csrfToken);
+        return api.request(error.config);
+      });
+    }
     if (error.response?.status === 401 && !requestUrl.includes('/api/auth/me')) {
       window.location.assign('/login');
     }
