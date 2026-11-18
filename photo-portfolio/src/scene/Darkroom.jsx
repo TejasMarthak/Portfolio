@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { cloudinaryUrl } from '../api';
 import * as THREE from 'three';
-import { getScenePixelRatio } from '../../../shared/deviceRendering.js';
+import { getScenePixelRatio, isTouchDevice } from '../../../shared/deviceRendering.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -112,7 +112,7 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
 }
 
 function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
-  const textureUrl = cloudinaryUrl(photo.src, 1200);
+  const textureUrl = cloudinaryUrl(photo.src, isTouchDevice() ? 800 : 1200);
   const texture = useTexture(textureUrl);
   const group = useRef();
   const { size } = useThree();
@@ -175,16 +175,17 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
 function LightShafts({ reducedMotion, photoCount }) {
   const { size } = useThree();
   const viewportAspect = size.width / size.height;
+  const touchDevice = isTouchDevice();
   const refs = useRef([]);
   const shafts = useMemo(() => {
-    const count = Math.min(24, Math.max(3, Math.ceil(photoCount / 3)));
+    const count = Math.min(touchDevice ? 8 : 24, Math.max(3, Math.ceil(photoCount / 3)));
     const lastZ = photoCount ? photoPosition(photoCount - 1, viewportAspect)[2] : -44;
     return Array.from({ length: count }, (_value, index) => ({
       position: [index % 2 ? 5 : -5, 4.5, -12 + ((lastZ + 12) * index) / (count - 1)],
       rotation: [0, 0, index % 2 ? 0.2 : -0.2],
       color: index % 3 === 1 ? '#ff6b4a' : '#e8a838'
     }));
-  }, [photoCount, viewportAspect]);
+  }, [photoCount, touchDevice, viewportAspect]);
 
   useFrame(({ clock }) => {
     refs.current.forEach((shaft, index) => {
@@ -196,7 +197,7 @@ function LightShafts({ reducedMotion, photoCount }) {
 
   return shafts.map((shaft, index) => (
     <mesh key={shaft.position[2]} ref={(node) => { refs.current[index] = node; }} position={shaft.position} rotation={shaft.rotation}>
-      <cylinderGeometry args={[0.08, 2.8, 15, 24, 1, true]} />
+      <cylinderGeometry args={[0.08, 2.8, 15, touchDevice ? 10 : 24, 1, true]} />
       <meshBasicMaterial color={shaft.color} transparent opacity={0.055} depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
     </mesh>
   ));
@@ -255,7 +256,7 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
             </button>
             <button type="button" className="photo-focus-close" aria-label="Close image" onClick={() => setFocusedIndex(null)}><X size={20} /></button>
             <motion.img
-              src={cloudinaryUrl(visiblePhotos[focusedIndex].src, 2000)}
+              src={cloudinaryUrl(visiblePhotos[focusedIndex].src, isTouchDevice() ? 1400 : 2000)}
               alt={visiblePhotos[focusedIndex].alt || visiblePhotos[focusedIndex].title || ''}
               initial={reducedMotion ? false : { scale: 0.92, filter: 'blur(10px)' }}
               animate={{ scale: 1, filter: 'blur(0px)' }}

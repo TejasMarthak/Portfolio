@@ -26,7 +26,7 @@ a { color: inherit; text-decoration: none; }
 
 .photo-app-shell { min-height: 100vh; overflow: clip; background: radial-gradient(ellipse at 50% 30%, #22160e 0%, #0b0907 60%); }
 .darkroom-layer { position: fixed; z-index: 0; inset: 0; pointer-events: auto; }
-.darkroom-layer canvas { display: block; }
+.darkroom-layer canvas { display: block; touch-action: pan-y; }
 .photo-world-mode .photo-journey { pointer-events: none; }
 .photo-world-mode .photo-journey a, .photo-world-mode .photo-journey button, .photo-world-mode .photo-journey input, .photo-world-mode .photo-journey select, .photo-world-mode .photo-journey textarea, .photo-world-mode .photo-journey video { pointer-events: auto; }
 .photo-world-mode .photo-journey .video-carousel { pointer-events: auto; }

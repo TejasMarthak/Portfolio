@@ -4,7 +4,7 @@ import { Html, Line, Stars } from '@react-three/drei';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
-import { getScenePixelRatio } from '../../../shared/deviceRendering.js';
+import { getScenePixelRatio, isTouchDevice } from '../../../shared/deviceRendering.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -103,6 +103,7 @@ function World({ content, reducedMotion }) {
     ...(content.skills || []).flatMap((category) => category.items || []),
     ...(content.projects || [])
   ];
+  const starCount = isTouchDevice() ? 450 : 1400;
   return (
     <>
       <color attach="background" args={['#05070d']} />
@@ -110,7 +111,7 @@ function World({ content, reducedMotion }) {
       <ambientLight intensity={0.5} />
       <pointLight position={[4, 5, 4]} color="#7c5cff" intensity={20} distance={25} />
       <pointLight position={[-5, 2, -14]} color="#33f2c7" intensity={14} distance={30} />
-      <Stars radius={70} depth={40} count={1400} factor={3} saturation={0.3} fade speed={reducedMotion ? 0 : 0.25} />
+      <Stars radius={70} depth={40} count={starCount} factor={3} saturation={0.3} fade speed={reducedMotion ? 0 : 0.25} />
       <Terrain />
       <Network items={nodes} />
       <CameraRig reducedMotion={reducedMotion} />

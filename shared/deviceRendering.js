@@ -1,10 +1,4 @@
 export function canRender3D() {
-  if (!window.matchMedia('(pointer: fine)').matches) return false;
-
-  const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
-  const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
-  if (lowCpu || lowMemory) return false;
-
   let context;
   try {
     context = document.createElement('canvas').getContext('webgl2');
@@ -17,10 +11,15 @@ export function canRender3D() {
   return capable;
 }
 
+export function isTouchDevice() {
+  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+}
+
 export function getScenePixelRatio() {
   const nativePixelRatio = window.devicePixelRatio || 1;
-  const isTouch = window.matchMedia('(pointer: coarse)').matches;
+  const isTouch = isTouchDevice();
+  const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
   const hasLowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
-  const ceiling = isTouch || hasLowMemory ? 1.25 : 1.5;
+  const ceiling = isTouch || lowCpu || hasLowMemory ? 1 : 1.5;
   return Math.min(nativePixelRatio, ceiling);
 }
