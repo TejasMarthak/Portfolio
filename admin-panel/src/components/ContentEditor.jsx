@@ -5,10 +5,11 @@ import toast from 'react-hot-toast';
 import { api } from '../api';
 import DropUpload from './DropUpload';
 import ConfirmDialog from './ConfirmDialog';
+import { cloudinaryBackgroundRemovalUrl } from '../../../shared/cloudinaryBackgroundRemoval.js';
 
 const sectionDefaults = {
   pro: {
-    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], photoURL: '', photoPublicId: '', photoAlt: '', cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
+    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], photoURL: '', photoPublicId: '', photoAlt: '', removePhotoBackground: false, showResumeButton: true, resumeButtonText: 'View resume', cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
     about: { title: '', eyebrow: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', stats: [], tags: [] },
     skills: [],
     projects: [],
@@ -51,6 +52,7 @@ const fieldLabels = {
   title: 'Title', desc: 'Description', bio: 'Biography', subtitle: 'Subtitle', category: 'Category',
   items: 'Items', name: 'Name', value: 'Value', label: 'Label', tags: 'Tags',
   photoURL: 'Photo', photoPublicId: 'Photo asset ID',   photoAlt: 'Photo alt text', stats: 'Statistics',
+  removePhotoBackground: 'Automatically remove photo background', showResumeButton: 'Show resume button', resumeButtonText: 'Resume button text',
   src: 'Photo', publicId: 'Asset ID', alt: 'Alt text',
   imageURL: 'Project image', imagePublicId: 'Image asset ID', liveURL: 'Project website URL',
   githubURL: 'Source-code URL', featured: 'Featured project', story: 'Story text',
@@ -168,6 +170,9 @@ function ObjectFields({
         </fieldset>;
       }
       const multiline = /bio|description|story|message/i.test(key);
+      const photoPreview = site === 'pro' && section === 'hero' && key === 'photoURL' && value.removePhotoBackground
+        ? cloudinaryBackgroundRemovalUrl(fieldValue, 700)
+        : fieldValue;
       return <label className={`structured-field ${multiline ? 'field-wide' : ''}`} key={fieldPath.join('.')}>
         <span>{label}</span>
         {typeof fieldValue === 'boolean' ? (
@@ -191,10 +196,24 @@ function ObjectFields({
             if (idField) onChange([...fieldPath.slice(0, -1), idField], '');
           }} placeholder={/URL|url/i.test(key) ? 'https://' : ''} />
         )}
+        {site === 'pro' && section === 'hero' && key === 'removePhotoBackground' && (
+          <small className="field-note">Cloudinary AI background removal must be available on your account. Transparent PNG uploads work without it.</small>
+        )}
         {isMediaField(key) && (
           <div className="field-upload">
             {fieldValue && /(?:src|image|thumb|poster|photoURL|bgURL|ogImage|logoURL)$/i.test(key) && (
-              <img className="media-field-preview" src={fieldValue} alt={`${label} preview`} />
+              <img
+                className="media-field-preview"
+                src={photoPreview}
+                alt={`${label} preview`}
+                onError={site === 'pro' && section === 'hero' && key === 'photoURL' && value.removePhotoBackground
+                  ? (event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = fieldValue;
+                    toast.error('Cloudinary background removal is unavailable. Check your account feature or turn it off.');
+                  }
+                  : undefined}
+              />
             )}
             {fieldValue && /videoURL/i.test(key) && (
               <video className="media-field-preview" src={fieldValue} controls preload="metadata" />
@@ -425,7 +444,11 @@ export default function ContentEditor({ site, section, title }) {
       <div className="page-heading"><div><p className="eyebrow">{site === 'pro' ? 'Developer portfolio' : 'Photography portfolio'}</p><h1>{title}</h1></div><span className="save-state">{isDirty ? 'Unsaved changes' : 'All changes saved'}</span></div>
       <section className="panel editor-panel">
         <div className="panel-title">
-          <div><h2>{sectionLabels[section] || 'Section content'}</h2><p>{sectionExists ? 'Read and edit this section. Add or remove repeatable items, then save your changes.' : 'This section has no content yet. Create it by adding content and saving.'}</p></div>
+          <div><h2>{sectionLabels[section] || 'Section content'}</h2><p>{site === 'pro' && section === 'resume'
+            ? 'Upload your PDF here. The hero resume button opens it in the public portfolio viewer.'
+            : sectionExists
+              ? 'Read and edit this section. Add or remove repeatable items, then save your changes.'
+              : 'This section has no content yet. Create it by adding content and saving.'}</p></div>
           {sectionExists && <button type="button" className="button button-danger" onClick={() => setConfirmDelete(true)} disabled={remove.isPending}><Trash2 size={14} />Delete section</button>}
         </div>
         <form onSubmit={(event) => { event.preventDefault(); save.mutate(draft); }}>

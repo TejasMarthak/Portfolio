@@ -1,9 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { useReducedMotion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
-import Lenis from 'lenis';
 import { api } from './api';
 import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
@@ -70,21 +69,6 @@ export default function App() {
   }, [content, settings.sections?.photo]);
   const proPortfolioUrl = settings.photoSite?.crossLinkToPro ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5173' : '');
-
-  useEffect(() => {
-    if (is3DCapable) return undefined;
-    const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
-    let frame;
-    const animate = (time) => {
-      lenis.raf(time);
-      frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
-    return () => {
-      cancelAnimationFrame(frame);
-      lenis.destroy();
-    };
-  }, [is3DCapable]);
 
   const seo = content.seo || {};
   const pageTitle = seo.title || PAGE_TITLE;

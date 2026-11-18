@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
-import Lenis from 'lenis';
 import { api } from './api';
 import CustomCursor from '../../shared/CustomCursor.jsx';
 import { useIs3DCapable } from './hooks/useIs3DCapable';
@@ -48,23 +47,59 @@ export default function App() {
     skills: settings.sections?.pro?.skills === false ? [] : content.skills || [],
     projects: settings.sections?.pro?.projects === false ? [] : content.projects || []
   }), [content, settings.sections?.pro?.skills, settings.sections?.pro?.projects]);
+  const sceneStartSection = useMemo(() => {
+    const sections = settings.sections?.pro || {};
+    if (sections.about !== false && hasPublishedContent({ about: content.about || {} })) return 'about';
+    if (sections.skills !== false && hasPublishedContent({ skills: content.skills || [] })) return 'skills';
+    if (sections.projects !== false && hasPublishedContent({ projects: content.projects || [] })) return 'projects';
+    if (sections.hobby !== false && hasPublishedContent({ hobby: content.hobby || {} })) return 'hobby';
+    return null;
+  }, [content, settings.sections?.pro]);
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
 
   useEffect(() => {
-    if (is3DCapable) return undefined;
-    const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
-    let frame;
-    const animate = (time) => {
-      lenis.raf(time);
-      frame = requestAnimationFrame(animate);
+    if (!sceneStartSection) return undefined;
+    const scene = document.querySelector(is3DCapable ? '.scene-layer' : '.build-plane-fallback');
+    const startTrigger = document.getElementById(sceneStartSection);
+    const endTrigger = document.querySelector('#contact .contact-form') ||
+      document.getElementById('contact') ||
+      document.querySelector('.site-footer');
+    const journey = document.getElementById('journey');
+    if (!scene || !startTrigger || !endTrigger || !journey) return undefined;
+
+    let frame = 0;
+    const updateVisibility = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 76;
+        const startPosition = startTrigger.getBoundingClientRect().top + window.scrollY - topbarHeight;
+        const endPosition = endTrigger.getBoundingClientRect().top + window.scrollY - window.innerHeight;
+        const clearance = Math.min(300, Math.floor(Math.max(0, endPosition - startPosition) * 0.2));
+        const visible = startTrigger.getBoundingClientRect().top <= topbarHeight &&
+          endTrigger.getBoundingClientRect().top > window.innerHeight + clearance;
+        scene.classList.toggle('is-visible', visible);
+      });
     };
-    frame = requestAnimationFrame(animate);
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    window.addEventListener('resize', updateVisibility);
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateVisibility);
+      resizeObserver.observe(journey);
+      resizeObserver.observe(startTrigger);
+      resizeObserver.observe(endTrigger);
+    }
+    updateVisibility();
+
     return () => {
-      cancelAnimationFrame(frame);
-      lenis.destroy();
+      resizeObserver?.disconnect();
+      window.removeEventListener('scroll', updateVisibility);
+      window.removeEventListener('resize', updateVisibility);
+      if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [is3DCapable]);
+  }, [is3DCapable, sceneStartSection]);
 
   const seo = content.seo || {};
   const pageTitle = seo.title || PAGE_TITLE;
@@ -90,11 +125,11 @@ export default function App() {
         <link rel="canonical" href={window.location.href.split('#')[0]} />
         <script type="application/ld+json">{JSON.stringify(personSchema).replace(/</g, '\\u003c')}</script>
       </Helmet>
-      {!is3DCapable && hasContent && <BuildPlaneFallback content={sceneContent} reducedMotion={Boolean(reducedMotion)} />}
-      {is3DCapable && hasContent && (
+      {!is3DCapable && hasContent && sceneStartSection && <BuildPlaneFallback content={sceneContent} reducedMotion={Boolean(reducedMotion)} startSection={sceneStartSection} />}
+      {is3DCapable && hasContent && sceneStartSection && (
         <div className="scene-layer" aria-hidden="true">
           <Suspense fallback={<ScenePlaceholder />}>
-            <BuildPlane content={sceneContent} reducedMotion={Boolean(reducedMotion)} />
+            <BuildPlane content={sceneContent} reducedMotion={Boolean(reducedMotion)} startSection={sceneStartSection} />
           </Suspense>
         </div>
       )}

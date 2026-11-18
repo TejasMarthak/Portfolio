@@ -1,4 +1,5 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useEffect } from 'react';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 
 const NODE_LAYOUT = [
   [18, 30], [73, 24], [48, 47], [23, 65], [78, 70], [53, 82], [42, 18]
@@ -37,14 +38,63 @@ function NetworkNode({ label, index, total, progress, reducedMotion }) {
   );
 }
 
-export default function BuildPlaneFallback({ content, reducedMotion }) {
-  const { scrollYProgress } = useScroll();
+function sceneClearance(startTrigger, endTrigger) {
+  const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 76;
+  const startPosition = startTrigger.getBoundingClientRect().top + window.scrollY - topbarHeight;
+  const endPosition = endTrigger.getBoundingClientRect().top + window.scrollY - window.innerHeight;
+  return Math.min(300, Math.floor(Math.max(0, endPosition - startPosition) * 0.2));
+}
+
+export default function BuildPlaneFallback({ content, reducedMotion, startSection }) {
+  const progress = useMotionValue(0);
   const nodes = [
     ...(content.skills || []).flatMap((category) => category.items || []),
     ...(content.projects || [])
   ].map((item) => typeof item === 'string' ? item : item?.name || item?.title)
     .filter((label) => typeof label === 'string' && label.trim())
     .slice(0, NODE_LAYOUT.length);
+
+  useEffect(() => {
+    if (reducedMotion || !startSection) return undefined;
+    const journey = document.getElementById('journey');
+    const startTrigger = document.getElementById(startSection);
+    const endTrigger = document.querySelector('#contact .contact-form') ||
+      document.getElementById('contact') ||
+      document.querySelector('.site-footer') ||
+      journey;
+    if (!journey || !startTrigger || !endTrigger) return undefined;
+
+    progress.set(0);
+    let frame = 0;
+    const updateProgress = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 76;
+        const startPosition = startTrigger.getBoundingClientRect().top + window.scrollY - topbarHeight;
+        const endPosition = endTrigger.getBoundingClientRect().top + window.scrollY - window.innerHeight -
+          sceneClearance(startTrigger, endTrigger);
+        const range = Math.max(1, endPosition - startPosition);
+        progress.set(Math.max(0, Math.min(1, (window.scrollY - startPosition) / range)));
+      });
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateProgress);
+      resizeObserver.observe(journey);
+      resizeObserver.observe(startTrigger);
+      resizeObserver.observe(endTrigger);
+    }
+    updateProgress();
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [progress, reducedMotion, startSection]);
 
   return (
     <div className="build-plane-fallback" aria-hidden="true">
@@ -63,7 +113,7 @@ export default function BuildPlaneFallback({ content, reducedMotion }) {
             label={label}
             index={index}
             total={nodes.length}
-            progress={scrollYProgress}
+            progress={progress}
             reducedMotion={reducedMotion}
           />
         ))}

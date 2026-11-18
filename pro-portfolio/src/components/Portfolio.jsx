@@ -1,7 +1,8 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowDown, ArrowUpRight, ExternalLink, Github, Menu, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, ExternalLink, FileText, Github, Menu, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cloudinaryUrl } from '../api';
+import { cloudinaryBackgroundRemovalUrl } from '../../../shared/cloudinaryBackgroundRemoval.js';
 import MediaViewer, { MediaLink, MediaTrigger } from '../../../shared/MediaViewer.jsx';
 import SiteContactDetails from '../../../shared/SiteContactDetails.jsx';
 import ContactForm from './ContactForm';
@@ -107,8 +108,10 @@ function hasRenderableContent(value) {
 
 export default function Portfolio({ content, settings, canUse3D }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portraitFallbackKey, setPortraitFallbackKey] = useState('');
   const hero = content.hero || {};
   const about = content.about || {};
+  const resume = content.resume || {};
   const hobby = content.hobby || {};
   const photoPortfolioUrl = settings.proSite?.crossLinkToPhoto ||
     (['localhost', '127.0.0.1'].includes(window.location.hostname) ? 'http://localhost:5174' : '');
@@ -119,6 +122,15 @@ export default function Portfolio({ content, settings, canUse3D }) {
   const projectsVisible = isVisible('projects', hasRenderableContent(content.projects));
   const hobbyVisible = isVisible('hobby', hasRenderableContent(hobby));
   const contactVisible = sectionSettings.contact !== false;
+  const transformedPortrait = hero.removePhotoBackground
+    ? cloudinaryBackgroundRemovalUrl(hero.photoURL, 1200)
+    : '';
+  const backgroundRemovalEnabled = Boolean(transformedPortrait && transformedPortrait !== hero.photoURL);
+  const portraitKey = `${hero.photoURL || ''}:${Boolean(hero.removePhotoBackground)}`;
+  const portraitTransformFailed = portraitFallbackKey === portraitKey;
+  const portraitUrl = backgroundRemovalEnabled && !portraitTransformFailed
+    ? transformedPortrait
+    : cloudinaryUrl(hero.photoURL, 1000);
   const sections = [
     { id: 'home', label: 'Home' },
     ...(aboutVisible ? [{ id: 'about', label: about.title || 'About' }] : []),
@@ -147,6 +159,21 @@ export default function Portfolio({ content, settings, canUse3D }) {
 
       <main id="journey" className={canUse3D ? 'journey' : 'journey journey-readable'}>
         <section id="home" className={`journey-section hero-section${hero.photoURL ? ' hero-section-with-photo' : ''}`} aria-label={hero.headline || 'Portfolio introduction'}>
+          {hero.photoURL && (
+            <figure className="hero-portrait-frame">
+              <img
+                className="hero-portrait"
+                src={portraitUrl}
+                alt={hero.photoAlt || hero.headline || ''}
+                loading="eager"
+                fetchpriority="high"
+                onError={backgroundRemovalEnabled && !portraitTransformFailed ? () => {
+                  console.warn('[pro-hero] Cloudinary background removal failed; showing the original portrait.');
+                  setPortraitFallbackKey(portraitKey);
+                } : undefined}
+              />
+            </figure>
+          )}
           <motion.div className="hero-copy" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }}>
             <p className="eyebrow"><span />{hero.eyebrow || 'Independent developer'}</p>
             <h1>{hero.headline || ''}<span className="hero-period">.</span></h1>
@@ -155,20 +182,14 @@ export default function Portfolio({ content, settings, canUse3D }) {
             <div className="hero-actions">
               {hero.cta1?.url && <MediaLink className="button button-primary" href={hero.cta1.url} title={hero.cta1.text || 'Portfolio media'}>{hero.cta1.text || ''}<ArrowUpRight size={17} /></MediaLink>}
               {hero.cta2?.url && <MediaLink className="button button-quiet" href={hero.cta2.url} title={hero.cta2.text || 'Portfolio media'}>{hero.cta2.text || ''}</MediaLink>}
+              {hero.showResumeButton !== false && resume.fileURL && (
+                <MediaLink className="button button-quiet resume-button" href={resume.fileURL} title="Resume">
+                  <FileText size={16} />{hero.resumeButtonText || 'View resume'}
+                </MediaLink>
+              )}
             </div>
             <a className="scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Scroll to explore</a>
           </motion.div>
-          {hero.photoURL && (
-            <figure className="hero-portrait-frame">
-              <img
-                className="hero-portrait"
-                src={cloudinaryUrl(hero.photoURL, 900)}
-                alt={hero.photoAlt || ''}
-                loading="eager"
-                fetchPriority="high"
-              />
-            </figure>
-          )}
           <div className="hero-coordinate" aria-hidden="true"><span>01</span><i /></div>
         </section>
 
