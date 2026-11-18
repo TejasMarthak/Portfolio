@@ -22,7 +22,7 @@ export default function Contacts() {
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       toast.success('Inquiry updated.');
     },
-    onError: () => toast.error('The inquiry could not be updated.')
+    onError: (error) => toast.error(error.response?.data?.error || 'The inquiry could not be updated.')
   });
   const remove = useMutation({
     mutationFn: (id) => api.delete(`/api/contact/${id}`),
@@ -32,7 +32,7 @@ export default function Contacts() {
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
       toast.success('Inquiry deleted.');
     },
-    onError: () => toast.error('The inquiry could not be deleted.')
+    onError: (error) => toast.error(error.response?.data?.error || 'The inquiry could not be deleted.')
   });
 
   return (

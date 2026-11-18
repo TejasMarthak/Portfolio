@@ -6,7 +6,7 @@ const { rateLimits } = require('../middleware/rateLimits');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { checkLockout, recordFailure, clearFailures } = require('../middleware/authLockout');
 const {
-  issuePair, setPairCookies, clearPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie
+  issuePair, setPairCookies, setCsrfCookie, clearPairCookies, revokeToken, rotateRefresh, refreshCookie, accessCookie
 } = require('../config/tokens');
 const AuthSession = require('../models/AuthSession');
 const Admin = require('../models/Admin');
@@ -94,10 +94,10 @@ router.post('/session/invalidate', verifyAccess, verifyCsrf, async (req, res, ne
     return next(error);
   }
 });
-router.get('/me', verifyAccess, (req, res) => res.json({
-  user: req.admin,
-  csrfToken: req.cookies.csrfToken || ''
-}));
+router.get('/me', verifyAccess, (req, res) => {
+  const csrfToken = req.cookies.csrfToken || setCsrfCookie(res);
+  return res.json({ user: req.admin, csrfToken });
+});
 
 router.patch('/me/avatar', verifyAccess, verifyCsrf, rateLimits.adminWrite, async (req, res, next) => {
   const { mediaId } = req.body || {};

@@ -53,7 +53,13 @@ function setPairCookies(res, pair, csrfToken) {
   const refreshExp = jwt.decode(pair.refreshToken)?.exp;
   res.cookie(accessCookie, pair.accessToken, { ...cookieOptions, maxAge: Math.max(0, accessExp * 1000 - Date.now()) });
   res.cookie(refreshCookie, pair.refreshToken, { ...cookieOptions, maxAge: Math.max(0, refreshExp * 1000 - Date.now()) });
-  res.cookie('csrfToken', csrfToken || crypto.randomBytes(32).toString('hex'), csrfCookieOptions);
+  setCsrfCookie(res, csrfToken);
+}
+
+function setCsrfCookie(res, csrfToken) {
+  const token = csrfToken || crypto.randomBytes(32).toString('hex');
+  res.cookie('csrfToken', token, csrfCookieOptions);
+  return token;
 }
 
 function clearPairCookies(res) {
@@ -105,5 +111,5 @@ async function rotateRefresh(token) {
 
 module.exports = {
   accessCookie, refreshCookie, cookieOptions, csrfCookieOptions, issuePair, setPairCookies,
-  clearPairCookies, revokeToken, rotateRefresh
+  setCsrfCookie, clearPairCookies, revokeToken, rotateRefresh
 };

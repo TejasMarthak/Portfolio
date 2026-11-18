@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 const originalNodeEnv = process.env.NODE_ENV;
 process.env.NODE_ENV = 'production';
-const { clearPairCookies, setPairCookies } = require('../src/config/tokens');
+const { clearPairCookies, setCsrfCookie, setPairCookies } = require('../src/config/tokens');
 if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
 else process.env.NODE_ENV = originalNodeEnv;
 
@@ -43,5 +43,24 @@ test('production auth cookies support cross-site HTTPS requests', () => {
   });
   assert.deepEqual(clearedCookies.get('csrfToken'), {
     secure: true, sameSite: 'none', path: '/'
+  });
+});
+
+test('creates a production CSRF cookie when an authenticated request has none', () => {
+  const cookies = new Map();
+  const response = {
+    cookie(name, value, options) {
+      cookies.set(name, { value, options });
+    }
+  };
+
+  const token = setCsrfCookie(response);
+
+  assert.match(token, /^[a-f\d]{64}$/);
+  assert.equal(cookies.get('csrfToken').value, token);
+  assert.deepEqual(cookies.get('csrfToken').options, {
+    secure: true,
+    sameSite: 'none',
+    path: '/'
   });
 });
