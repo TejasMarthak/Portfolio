@@ -138,7 +138,7 @@ export default function App() {
       ) : (
         <>
           <Preloader name={content.hero?.tagline || content.about?.openingLine} />
-          <Portfolio content={content} settings={settings} canUse3D={is3DCapable} />
+          <Portfolio content={content} settings={settings} canUse3D={is3DCapable} reducedMotion={Boolean(reducedMotion)} />
         </>
       )}
     </div>

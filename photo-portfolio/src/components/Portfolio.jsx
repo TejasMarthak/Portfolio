@@ -86,7 +86,7 @@ function PhotoGallery({ gallery }) {
   );
 }
 
-export default function Portfolio({ content, settings, canUse3D }) {
+export default function Portfolio({ content, settings, canUse3D, reducedMotion }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hero = content.hero || {};
   const about = content.about || {};
@@ -112,6 +112,9 @@ export default function Portfolio({ content, settings, canUse3D }) {
   const clientsVisible = isVisible('clients', clients.length > 0);
   const aboutVisible = isVisible('about', hasRenderableContent(about));
   const contactVisible = sectionSettings.contact !== false;
+  const hasScenePhotos = (galleryVisible && gallery.length > 0) ||
+    (storiesVisible && stories.some((story) => story.image)) ||
+    (aboutVisible && Boolean(about.photoURL));
   const sections = [
     { id: 'home', label: 'Home' },
     ...(galleryVisible ? [{ id: 'gallery', label: content.galleryTitle || 'Gallery' }] : []),
@@ -213,6 +216,7 @@ export default function Portfolio({ content, settings, canUse3D }) {
           </div>
         </section>}
 
+        {canUse3D && !reducedMotion && contactVisible && hasScenePhotos && <div className="photo-scene-runway" aria-hidden="true" />}
         {contactVisible && <section id="contact" className="photo-section photo-contact-section" aria-label={content.contactTitle || 'Contact'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.contactEyebrow || ''}</span><h2>{content.contactTitle || 'Let’s create something'}</h2></div>
           <ContactForm projectTypes={projectTypes} />

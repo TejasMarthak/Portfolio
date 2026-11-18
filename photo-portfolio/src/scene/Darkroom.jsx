@@ -13,6 +13,14 @@ gsap.registerPlugin(ScrollTrigger);
 const CAMERA_FOV = 50;
 const CONTACT_SCENE_CLEARANCE = 350;
 
+function contactSceneClearance(startTrigger, endTrigger) {
+  const topbarHeight = document.querySelector('.photo-topbar')?.offsetHeight || 78;
+  const startPosition = startTrigger.getBoundingClientRect().top + window.scrollY - topbarHeight;
+  const endPosition = endTrigger.getBoundingClientRect().top + window.scrollY - window.innerHeight;
+  const availableDistance = Math.max(0, endPosition - startPosition);
+  return Math.min(CONTACT_SCENE_CLEARANCE, Math.floor(availableDistance * 0.2));
+}
+
 function cameraDistanceFor(aspect) {
   const viewHeightAtUnit = 2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
   return Math.max(6.4, 5.4 / (viewHeightAtUnit * Math.max(aspect, 0.4) * 0.82));
@@ -58,8 +66,8 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
         trigger: startTrigger,
         start: () => `top top+=${document.querySelector('.photo-topbar')?.offsetHeight || 78}`,
         endTrigger,
-        end: () => `top bottom+=${CONTACT_SCENE_CLEARANCE}`,
-        scrub: 1.2,
+        end: () => `top bottom+=${contactSceneClearance(startTrigger, endTrigger)}`,
+        scrub: 0.3,
         invalidateOnRefresh: true
       }
     });
@@ -267,7 +275,6 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
   const visiblePhotos = useMemo(() => photos.filter((photo) => photo.src), [photos]);
 
   useEffect(() => {
-    if (reducedMotion) return undefined;
     const canvas = document.querySelector('.darkroom-layer canvas');
     const startTrigger = document.getElementById(startSection);
     const endTrigger = document.querySelector('#contact .photo-contact-form') ||
@@ -276,29 +283,40 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
     if (!canvas || !startTrigger || !endTrigger) return undefined;
 
     const topbarHeight = () => document.querySelector('.photo-topbar')?.offsetHeight || 78;
-    gsap.set(canvas, { opacity: 0 });
-    const reveal = gsap.to(canvas, {
-      opacity: 1,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: startTrigger,
-        start: () => `top top+=${topbarHeight()}`,
-        end: () => `top top-=${Math.round(topbarHeight() * 1.5)}`,
-        scrub: true,
-        invalidateOnRefresh: true
-      }
+    const setOpacity = (opacity) => {
+      gsap.killTweensOf(canvas);
+      gsap.to(canvas, { opacity, duration: reducedMotion ? 0 : 0.2, overwrite: true });
+    };
+    const journeyStarted = startTrigger.getBoundingClientRect().top <= topbarHeight();
+    const contactStarted = endTrigger.getBoundingClientRect().top <= window.innerHeight;
+    gsap.set(canvas, { opacity: journeyStarted && !contactStarted ? 1 : 0 });
+    const reveal = ScrollTrigger.create({
+      trigger: startTrigger,
+      start: () => `top top+=${topbarHeight()}`,
+      onEnter: () => setOpacity(1),
+      onEnterBack: () => setOpacity(1),
+      onLeaveBack: () => setOpacity(0),
+      invalidateOnRefresh: true
     });
-    const hide = gsap.to(canvas, {
-      opacity: 0,
-      ease: 'none',
-      scrollTrigger: {
+    const hideTrigger = reducedMotion
+      ? ScrollTrigger.create({
         trigger: endTrigger,
-        start: () => `top bottom+=${CONTACT_SCENE_CLEARANCE}`,
-        end: 'top bottom',
-        scrub: true,
+        start: 'top bottom',
+        onEnter: () => gsap.set(canvas, { opacity: 0 }),
+        onLeaveBack: () => setOpacity(1),
         invalidateOnRefresh: true
-      }
-    });
+      })
+      : gsap.to(canvas, {
+        opacity: 0,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: endTrigger,
+          start: () => `top bottom+=${contactSceneClearance(startTrigger, endTrigger)}`,
+          end: 'top bottom',
+          scrub: true,
+          invalidateOnRefresh: true
+        }
+      });
     const refresh = () => ScrollTrigger.refresh();
     let resizeObserver;
     if (typeof ResizeObserver !== 'undefined') {
@@ -312,10 +330,10 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
     return () => {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', refresh);
-      reveal.scrollTrigger?.kill();
       reveal.kill();
-      hide.scrollTrigger?.kill();
-      hide.kill();
+      hideTrigger.scrollTrigger?.kill();
+      hideTrigger.kill();
+      gsap.killTweensOf(canvas);
       gsap.set(canvas, { clearProps: 'opacity' });
     };
   }, [reducedMotion, startSection]);

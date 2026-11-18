@@ -25,7 +25,7 @@ function CameraRig({ reducedMotion }) {
     const tween = gsap.to(progress.current, {
       value: 1,
       ease: 'none',
-      scrollTrigger: { trigger: '#journey', start: 'top top', end: 'bottom bottom', scrub: 1 }
+      scrollTrigger: { trigger: '#journey', start: 'top top', end: 'bottom bottom', scrub: 0.3 }
     });
     return () => {
       tween.scrollTrigger?.kill();
@@ -33,11 +33,11 @@ function CameraRig({ reducedMotion }) {
     };
   }, [reducedMotion]);
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const position = progress.current.value * (destinations.length - 1);
     const index = Math.min(Math.floor(position), destinations.length - 2);
     const target = destinations[index].clone().lerp(destinations[index + 1], position - index);
-    camera.position.lerp(target, reducedMotion ? 1 : 0.075);
+    camera.position.lerp(target, reducedMotion ? 1 : 1 - Math.exp(-delta * 6));
     camera.lookAt(0, 0, camera.position.z - 4);
   });
 
