@@ -15,8 +15,8 @@ export default function ContactForm({ projectTypes }) {
       await api.post('/api/contact', { ...values, source: 'photo' });
       form.reset();
       toast.success('Message received.');
-    } catch {
-      toast.error('The message could not be sent. Please try again.');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Could not confirm submission. Your inquiry may already be received; wait before trying again.');
     } finally {
       setBusy(false);
     }

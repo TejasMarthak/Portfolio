@@ -55,6 +55,18 @@ test('WhatsApp test notifications require an authenticated admin', async (contex
   assert.equal(response.status, 401);
 });
 
+test('email test notifications require an authenticated admin', async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+  await new Promise((resolve) => server.once('listening', resolve));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/email/test`, {
+    method: 'POST'
+  });
+  assert.equal(response.status, 401);
+});
+
 test('unknown content sections are rejected without database access', async (context) => {
   const server = app.listen(0);
   context.after(() => new Promise((resolve, reject) => {

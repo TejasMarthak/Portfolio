@@ -4,6 +4,7 @@ import { Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
 import WhatsAppConnection from '../components/WhatsAppConnection';
+import EmailDeliveryTest from '../components/EmailDeliveryTest';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const sectionOptions = {
@@ -161,6 +162,7 @@ export default function Settings() {
       <div className="page-heading"><div><p className="eyebrow">General</p><h1>Site settings</h1></div><span className="save-state">{isDirty ? 'Unsaved changes' : 'All changes saved'}</span></div>
       <div className="settings-callout"><strong>Site-wide details</strong><span>Add social profile links, contact information, cross-links, and availability here. Private keys belong in the API environment, never in the CMS.</span></div>
       <WhatsAppConnection />
+      <EmailDeliveryTest />
       {query.isPending ? <div className="page-loading">Loading settings…</div> : query.isError ? <p className="page-error">Settings could not be loaded.</p> : (
         <form onSubmit={submit} className="settings-form">
           <section className="panel editor-panel settings-section">

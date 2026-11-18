@@ -9,11 +9,14 @@ async function sendContactEmail(contact) {
     if (missingSettings.length) {
       const error = `Missing ${missingSettings.join(' and ')}`;
       console.error('[email] notification skipped:', error);
-      return { sent: false, error };
+      return { sent: false, error, errorCode: 'EMAIL_CONFIG_MISSING' };
     }
     const nodemailer = await import('nodemailer');
     const transporter = nodemailer.createTransport({
       service: 'gmail',
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
       auth: { user: gmailUser, pass: gmailAppPassword }
     });
     const color = contact.source === 'photo' ? '#e8a838' : '#7c5cff';
@@ -30,11 +33,20 @@ async function sendContactEmail(contact) {
     });
     return { sent: true };
   } catch (error) {
+    const errorCode = /^[A-Z0-9_]{1,40}$/.test(String(error.code || error.name || ''))
+      ? String(error.code || error.name)
+      : 'EMAIL_SEND_FAILED';
+    const responseCode = Number.isInteger(error.responseCode) ? error.responseCode : undefined;
     console.error('[email] notification failed:', {
-      code: error.code || error.name,
-      responseCode: Number.isInteger(error.responseCode) ? error.responseCode : undefined
+      code: errorCode,
+      responseCode
     });
-    return { sent: false, error: 'Email provider rejected the notification.' };
+    return {
+      sent: false,
+      error: 'Email provider rejected the notification.',
+      errorCode,
+      responseCode
+    };
   }
 }
 

@@ -15,7 +15,8 @@ test('reports missing Gmail settings without attempting to send', async () => {
     const result = await sendContactEmail({});
     assert.deepEqual(result, {
       sent: false,
-      error: 'Missing GMAIL_USER and GMAIL_APP_PASSWORD'
+      error: 'Missing GMAIL_USER and GMAIL_APP_PASSWORD',
+      errorCode: 'EMAIL_CONFIG_MISSING'
     });
     assert.deepEqual(errors, [[
       '[email] notification skipped:',
