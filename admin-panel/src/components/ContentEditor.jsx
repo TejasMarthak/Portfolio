@@ -8,7 +8,7 @@ import ConfirmDialog from './ConfirmDialog';
 
 const sectionDefaults = {
   pro: {
-    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
+    hero: { eyebrow: '', headline: '', subheadline: '', typingWords: [], photoURL: '', photoPublicId: '', photoAlt: '', cta1: { text: '', url: '' }, cta2: { text: '', url: '' } },
     about: { title: '', eyebrow: '', bio: '', photoURL: '', photoPublicId: '', photoAlt: '', stats: [], tags: [] },
     skills: [],
     projects: [],

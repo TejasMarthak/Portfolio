@@ -146,7 +146,7 @@ export default function Portfolio({ content, settings, canUse3D }) {
       </header>
 
       <main id="journey" className={canUse3D ? 'journey' : 'journey journey-readable'}>
-        <section id="home" className="journey-section hero-section" aria-label={hero.headline || 'Portfolio introduction'}>
+        <section id="home" className={`journey-section hero-section${hero.photoURL ? ' hero-section-with-photo' : ''}`} aria-label={hero.headline || 'Portfolio introduction'}>
           <motion.div className="hero-copy" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }}>
             <p className="eyebrow"><span />{hero.eyebrow || 'Independent developer'}</p>
             <h1>{hero.headline || ''}<span className="hero-period">.</span></h1>
@@ -158,6 +158,17 @@ export default function Portfolio({ content, settings, canUse3D }) {
             </div>
             <a className="scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Scroll to explore</a>
           </motion.div>
+          {hero.photoURL && (
+            <figure className="hero-portrait-frame">
+              <img
+                className="hero-portrait"
+                src={cloudinaryUrl(hero.photoURL, 900)}
+                alt={hero.photoAlt || ''}
+                loading="eager"
+                fetchPriority="high"
+              />
+            </figure>
+          )}
           <div className="hero-coordinate" aria-hidden="true"><span>01</span><i /></div>
         </section>
 
