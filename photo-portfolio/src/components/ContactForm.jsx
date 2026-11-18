@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { api } from '../api';
+import { sendFormSubmit } from '../../../shared/formSubmit.js';
 
 export default function ContactForm({ projectTypes }) {
   const [busy, setBusy] = useState(false);
@@ -12,8 +13,29 @@ export default function ContactForm({ projectTypes }) {
     const values = Object.fromEntries(new FormData(form));
     setBusy(true);
     try {
-      await api.post('/api/contact', { ...values, source: 'photo' });
+      const { data } = await api.post('/api/contact', { ...values, source: 'photo' });
       form.reset();
+      if (!data.emailDelivery) {
+        console.error('[contact] email notification unavailable: email delivery configuration missing');
+        toast.error('Your inquiry is saved, but its email notification is not configured.');
+        return;
+      }
+
+      try {
+        await sendFormSubmit(data.emailDelivery.recipient, data.emailDelivery.fields);
+      } catch (error) {
+        console.error('[contact] email notification not sent:', error.code || error.name);
+        toast.error('Your inquiry is saved, but its email notification could not be sent.');
+        return;
+      }
+
+      try {
+        await api.post(`/api/contact/${encodeURIComponent(data.contactId)}/email-status`, {
+          statusToken: data.emailDelivery.statusToken
+        });
+      } catch (error) {
+        console.error('[contact] email notification status not saved:', error.response?.status || error.code || error.name);
+      }
       toast.success('Message received.');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Could not confirm submission. Your inquiry may already be received; wait before trying again.');

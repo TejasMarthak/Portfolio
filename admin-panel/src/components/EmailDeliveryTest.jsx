@@ -2,13 +2,23 @@ import { useMutation } from '@tanstack/react-query';
 import { Mail, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
+import { sendFormSubmit } from '../../../shared/formSubmit.js';
 
 export default function EmailDeliveryTest() {
   const test = useMutation({
-    mutationFn: () => api.post('/api/email/test', {}, { timeout: 45000 }),
+    mutationFn: async () => {
+      const { data } = await api.post('/api/email/test', {}, { timeout: 15000 });
+      return sendFormSubmit(data.recipient, {
+        source: 'admin',
+        name: 'Portfolio CMS',
+        email: data.recipient,
+        subject: 'Email delivery test',
+        message: 'This is a test of the portfolio contact email configuration.'
+      });
+    },
     onSuccess: () => toast.success('FormSubmit accepted the test. Check the configured inbox and Spam.'),
-    onError: (error) => toast.error(error.response?.data?.code
-      ? `Email test failed (${error.response.data.code}${error.response.data.responseCode ? `/${error.response.data.responseCode}` : ''}).`
+    onError: (error) => toast.error(error.code
+      ? `Email test failed (${error.code}${error.responseCode ? `/${error.responseCode}` : ''}).`
       : error.response?.data?.error || 'Email test could not be completed.')
   });
 
@@ -24,8 +34,8 @@ export default function EmailDeliveryTest() {
         </button>
       </div>
       <div className="whatsapp-content">
-        {test.isError && test.error.response?.data?.code && (
-          <EmailTestError error={test.error.response.data} />
+        {test.isError && (test.error.code || test.error.response?.data?.code) && (
+          <EmailTestError error={test.error.response?.data || test.error} />
         )}
         <p className="whatsapp-footnote"><Mail size={12} /> FormSubmit needs a one-time email confirmation on first use. Check Spam too.</p>
       </div>
@@ -37,11 +47,9 @@ function EmailTestError({ error }) {
   const guidance = error.code === 'FORMSUBMIT_CONFIRMATION_REQUIRED'
     ? ' Open the FormSubmit confirmation email sent to GMAIL_USER (check Spam) and click its activation link.'
     : error.code === 'FORMSUBMIT_REJECTED'
-      ? error.responseCode === 403
-        ? ' FormSubmit returned 403. Check the recipient confirmation and the API client URL environment settings.'
-        : ' Check that GMAIL_USER is a valid recipient and complete any FormSubmit confirmation.'
+      ? ' Check that GMAIL_USER is a valid recipient and complete any FormSubmit confirmation.'
       : error.code === 'FORMSUBMIT_TIMEOUT' || error.code === 'FORMSUBMIT_NETWORK_ERROR'
-        ? ' The API could not reach FormSubmit over HTTPS. Check the API logs and outbound network access.'
+        ? ' This browser could not reach FormSubmit over HTTPS. Check your connection and try again.'
         : error.code === 'EMAIL_CONFIG_MISSING'
           ? ' Set GMAIL_USER to the inbox that should receive contact notifications. No API key is required.'
           : error.code === 'FORMSUBMIT_RATE_LIMIT'

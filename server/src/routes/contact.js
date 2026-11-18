@@ -1,10 +1,10 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const jwt = require('jsonwebtoken');
 const Contact = require('../models/Contact');
 const { verifyAccess, verifyCsrf } = require('../middleware/auth');
 const { rateLimits } = require('../middleware/rateLimits');
 const { sendWhatsAppMessage } = require('../services/whatsapp');
-const { sendContactEmail } = require('../services/email');
 
 const validators = [
   body('source').isIn(['pro', 'photo']),
@@ -19,37 +19,56 @@ const validators = [
 function createContactRouter(dependencies = {}) {
   const ContactModel = dependencies.Contact || Contact;
   const sendWhatsApp = dependencies.sendWhatsAppMessage || sendWhatsAppMessage;
-  const sendEmail = dependencies.sendContactEmail || sendContactEmail;
   const router = express.Router();
 
   async function sendNotifications(contact) {
-    const [whatsappResult, emailResult] = await Promise.allSettled([
-      sendWhatsApp(process.env.YOUR_WHATSAPP_JID, `${contact.source} contact from ${contact.name} (${contact.email}): ${contact.subject}`),
-      sendEmail(contact)
+    const [whatsappResult] = await Promise.allSettled([
+      sendWhatsApp(process.env.YOUR_WHATSAPP_JID, `${contact.source} contact from ${contact.name} (${contact.email}): ${contact.subject}`)
     ]);
     const whatsappSent = whatsappResult.status === 'fulfilled' && whatsappResult.value.sent;
-    const emailSent = emailResult.status === 'fulfilled' && emailResult.value.sent;
     if (!whatsappSent) {
       const reason = whatsappResult.status === 'fulfilled'
         ? whatsappResult.value.error || 'WhatsApp provider returned sent=false'
         : whatsappResult.reason?.code || whatsappResult.reason?.name || 'Unexpected notification error';
       console.error('[contact] WhatsApp notification not sent:', reason);
     }
-    if (!emailSent) {
-      const reason = emailResult.status === 'fulfilled'
-        ? emailResult.value.errorCode || emailResult.value.error || 'Email provider returned sent=false'
-        : emailResult.reason?.code || emailResult.reason?.name || 'Unexpected notification error';
-      console.error('[contact] email notification not sent:', reason);
-    }
     try {
       const update = await ContactModel.updateOne(
         { _id: contact._id },
-        { $set: { whatsappSent, emailSent } }
+        { $set: { whatsappSent } }
       );
       if (!update.matchedCount) console.error('[contact] notification status not saved: contact not found');
     } catch (error) {
       console.error('[contact] notification status not saved:', error.code || error.name);
     }
+  }
+
+  function createEmailDelivery(contact) {
+    const recipient = String(process.env.GMAIL_USER || '').trim();
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!recipient || !secret) {
+      console.error('[contact] browser email delivery unavailable:', !recipient
+        ? 'Missing GMAIL_USER'
+        : 'Missing JWT_ACCESS_SECRET');
+      return null;
+    }
+
+    return {
+      recipient,
+      statusToken: jwt.sign({
+        purpose: 'contact-email-status',
+        contactId: String(contact._id)
+      }, secret, { expiresIn: '15m' }),
+      fields: {
+        source: contact.source,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        subject: contact.subject,
+        projectType: contact.projectType,
+        message: contact.message
+      }
+    };
   }
 
   router.post('/', rateLimits.contact, validators, async (req, res, next) => {
@@ -69,7 +88,38 @@ function createContactRouter(dependencies = {}) {
       sendNotifications(savedContact).catch((error) => {
         console.error('[contact] notification processing failed:', error.code || error.name);
       });
-      return res.status(202).json({ ok: true, message: 'Your message has been received' });
+      return res.status(202).json({
+        ok: true,
+        message: 'Your message has been received',
+        contactId: String(savedContact._id),
+        emailDelivery: createEmailDelivery(savedContact)
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post('/:id/email-status', body('statusToken').isString().isLength({ min: 32, max: 2048 }), async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ error: 'Invalid email delivery status request' });
+
+      let payload;
+      try {
+        payload = jwt.verify(req.body.statusToken, process.env.JWT_ACCESS_SECRET);
+      } catch {
+        return res.status(403).json({ error: 'Invalid email delivery status token' });
+      }
+      if (payload.purpose !== 'contact-email-status' || payload.contactId !== req.params.id) {
+        return res.status(403).json({ error: 'Invalid email delivery status token' });
+      }
+
+      const update = await ContactModel.updateOne(
+        { _id: req.params.id },
+        { $set: { emailSent: true } }
+      );
+      if (!update.matchedCount) return res.status(404).json({ error: 'Contact not found' });
+      return res.json({ ok: true, emailSent: true });
     } catch (error) {
       return next(error);
     }
