@@ -30,12 +30,24 @@ router.post('/', rateLimits.contact, validators, async (req, res, next) => {
       projectType: req.body.projectType || '',
       message: req.body.message
     });
-    const notifications = await Promise.allSettled([
+    const [whatsappResult, emailResult] = await Promise.allSettled([
       sendWhatsAppMessage(process.env.YOUR_WHATSAPP_JID, `${contact.source} contact from ${contact.name} (${contact.email}): ${contact.subject}`),
       sendContactEmail(contact.toObject())
     ]);
-    contact.whatsappSent = notifications[0].status === 'fulfilled' && notifications[0].value.sent;
-    contact.emailSent = notifications[1].status === 'fulfilled' && notifications[1].value.sent;
+    contact.whatsappSent = whatsappResult.status === 'fulfilled' && whatsappResult.value.sent;
+    contact.emailSent = emailResult.status === 'fulfilled' && emailResult.value.sent;
+    if (!contact.whatsappSent) {
+      const reason = whatsappResult.status === 'fulfilled'
+        ? whatsappResult.value.error || 'WhatsApp provider returned sent=false'
+        : whatsappResult.reason?.code || whatsappResult.reason?.name || 'Unexpected notification error';
+      console.error('[contact] WhatsApp notification not sent:', reason);
+    }
+    if (!contact.emailSent) {
+      const reason = emailResult.status === 'fulfilled'
+        ? emailResult.value.error || 'Email provider returned sent=false'
+        : emailResult.reason?.code || emailResult.reason?.name || 'Unexpected notification error';
+      console.error('[contact] email notification not sent:', reason);
+    }
     await contact.save();
     return res.status(200).json({ ok: true, message: 'Your message has been received' });
   } catch (error) {

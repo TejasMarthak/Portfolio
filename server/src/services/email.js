@@ -1,6 +1,14 @@
 async function sendContactEmail(contact) {
   try {
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return { sent: false };
+    const missingSettings = [
+      !process.env.GMAIL_USER && 'GMAIL_USER',
+      !process.env.GMAIL_APP_PASSWORD && 'GMAIL_APP_PASSWORD'
+    ].filter(Boolean);
+    if (missingSettings.length) {
+      const error = `Missing ${missingSettings.join(' and ')}`;
+      console.error('[email] notification skipped:', error);
+      return { sent: false, error };
+    }
     const nodemailer = await import('nodemailer');
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -21,7 +29,7 @@ async function sendContactEmail(contact) {
     return { sent: true };
   } catch (error) {
     console.error('[email] notification failed:', error.code || error.name);
-    return { sent: false };
+    return { sent: false, error: 'Email provider rejected the notification.' };
   }
 }
 
