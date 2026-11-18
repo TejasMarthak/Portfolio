@@ -62,10 +62,10 @@ export default function App() {
     if (!sceneStartSection) return undefined;
     const scene = document.querySelector(is3DCapable ? '.scene-layer' : '.build-plane-fallback');
     const startTrigger = document.getElementById(sceneStartSection);
-    const endTrigger = document.querySelector('#contact .contact-form') ||
-      document.getElementById('contact') ||
-      document.querySelector('.site-footer');
     const journey = document.getElementById('journey');
+    const endTrigger = document.getElementById('contact') ||
+      document.querySelector('.site-footer') ||
+      journey;
     if (!scene || !startTrigger || !endTrigger || !journey) return undefined;
 
     let frame = 0;
@@ -74,11 +74,9 @@ export default function App() {
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         const topbarHeight = document.querySelector('.topbar')?.offsetHeight || 76;
-        const startPosition = startTrigger.getBoundingClientRect().top + window.scrollY - topbarHeight;
-        const endPosition = endTrigger.getBoundingClientRect().top + window.scrollY - window.innerHeight;
-        const clearance = Math.min(300, Math.floor(Math.max(0, endPosition - startPosition) * 0.2));
+        const contactVisible = endTrigger.getBoundingClientRect().bottom > 0;
         const visible = startTrigger.getBoundingClientRect().top <= topbarHeight &&
-          endTrigger.getBoundingClientRect().top > window.innerHeight + clearance;
+          contactVisible;
         scene.classList.toggle('is-visible', visible);
       });
     };

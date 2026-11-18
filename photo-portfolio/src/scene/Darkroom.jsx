@@ -28,7 +28,7 @@ function cameraDistanceFor(aspect) {
 
 function photoLateralRange(aspect) {
   const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2) * cameraDistanceFor(aspect);
-  return viewHeight * aspect * (aspect > 1.1 ? 0.12 : 0.08);
+  return viewHeight * aspect * 0.16;
 }
 
 function photoPosition(index, aspect = 1.6) {
@@ -54,10 +54,7 @@ function CameraRig({ reducedMotion, focusedIndex, photos, startSection }) {
     if (reducedMotion) return undefined;
     const journey = document.getElementById('darkroom-journey');
     const startTrigger = document.getElementById(startSection) || journey;
-    const endTrigger = document.querySelector('#contact .photo-contact-form') ||
-      document.getElementById('contact') ||
-      document.querySelector('.photo-footer') ||
-      journey;
+    const endTrigger = document.getElementById('contact') || journey;
     if (!startTrigger || !endTrigger) return undefined;
     const tween = gsap.to(progress.current, {
       value: 1,
@@ -144,7 +141,7 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
   const cameraDistance = cameraDistanceFor(viewportAspect);
   const aspect = texture?.image?.width && texture?.image?.height ? texture.image.width / texture.image.height : 1.4;
   const frameHeight = 2 * Math.tan(fov / 2) * cameraDistance * 0.82;
-  const frameWidth = frameHeight * viewportAspect * (viewportAspect > 1.1 ? 0.56 : 0.84);
+  const frameWidth = frameHeight * viewportAspect * (viewportAspect > 1.1 ? 0.46 : 0.56);
   const width = Math.min(frameWidth, frameHeight * aspect);
   const height = width / aspect;
 
@@ -199,7 +196,7 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
     <group ref={group} position={position}>
       <mesh position={[0, 0, -0.08]}>
         <planeGeometry args={[width + 0.48, height + 0.48]} />
-        <meshBasicMaterial color="#ff6b4a" transparent opacity={0.055} depthWrite={false} />
+        <meshBasicMaterial color="#ff6b4a" transparent opacity={0.075} depthWrite={false} />
       </mesh>
       <mesh position={[0, 0, -0.045]}>
         <planeGeometry args={[width + 0.16, height + 0.16]} />
@@ -212,11 +209,11 @@ function PhotoPlane({ photo, index, active, onFocus, reducedMotion }) {
         onPointerOut={() => { document.body.style.cursor = ''; }}
       >
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial key={texture?.uuid || 'photo-placeholder'} map={texture} color={texture ? '#fff3dc' : '#372418'} toneMapped={false} />
+        <meshBasicMaterial key={texture?.uuid || 'photo-placeholder'} map={texture} color={texture ? '#d8c6aa' : '#372418'} toneMapped={false} />
       </mesh>
       <mesh raycast={() => null} position={[0, 0, 0.05]} renderOrder={2}>
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial color="#e8a838" transparent opacity={0.12} depthWrite={false} blending={THREE.MultiplyBlending} />
+        <meshBasicMaterial color="#e8a838" transparent opacity={0.08} depthWrite={false} blending={THREE.MultiplyBlending} />
       </mesh>
     </group>
   );
@@ -254,10 +251,16 @@ function LightShafts({ reducedMotion, photoCount }) {
 }
 
 function Scene({ photos, reducedMotion, focusedIndex, setFocusedIndex, startSection }) {
+  const { size } = useThree();
+  const viewportAspect = size.width / size.height;
+  const cameraDistance = cameraDistanceFor(viewportAspect);
+  const lastPhotoPosition = photoPosition(Math.max(photos.length - 1, 0), viewportAspect);
+  const fogFar = Math.max(33, Math.abs(lastPhotoPosition[2]) + cameraDistance + 8);
+
   return (
     <>
       <color attach="background" args={['#0b0907']} />
-      <fog attach="fog" args={['#0b0907', 7, 33]} />
+      <fog attach="fog" args={['#0b0907', 7, fogFar]} />
       <ambientLight intensity={0.8} color="#f4d0a0" />
       <spotLight position={[-6, 8, 2]} angle={0.35} penumbra={0.8} intensity={50} color="#e8a838" />
       <pointLight position={[6, 0, -10]} intensity={16} color="#ff6b4a" distance={22} />
@@ -285,9 +288,9 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
   useEffect(() => {
     const canvas = document.querySelector('.darkroom-layer canvas');
     const startTrigger = document.getElementById(startSection);
-    const endTrigger = document.querySelector('#contact .photo-contact-form') ||
-      document.getElementById('contact') ||
-      document.querySelector('.photo-footer');
+    const endTrigger = document.getElementById('contact') ||
+      document.querySelector('.photo-footer') ||
+      document.getElementById('darkroom-journey');
     if (!canvas || !startTrigger || !endTrigger) return undefined;
 
     const topbarHeight = () => document.querySelector('.photo-topbar')?.offsetHeight || 78;
@@ -296,8 +299,8 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
       gsap.to(canvas, { opacity, duration: reducedMotion ? 0 : 0.2, overwrite: true });
     };
     const journeyStarted = startTrigger.getBoundingClientRect().top <= topbarHeight();
-    const contactStarted = endTrigger.getBoundingClientRect().top <= window.innerHeight;
-    gsap.set(canvas, { opacity: journeyStarted && !contactStarted ? 1 : 0 });
+    const contactNotEnded = endTrigger.getBoundingClientRect().bottom > 0;
+    gsap.set(canvas, { opacity: journeyStarted && contactNotEnded ? 1 : 0 });
     const reveal = ScrollTrigger.create({
       trigger: startTrigger,
       start: () => `top top+=${topbarHeight()}`,
@@ -309,7 +312,7 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
     const hideTrigger = reducedMotion
       ? ScrollTrigger.create({
         trigger: endTrigger,
-        start: 'top bottom',
+        start: 'bottom top',
         onEnter: () => gsap.set(canvas, { opacity: 0 }),
         onLeaveBack: () => setOpacity(1),
         invalidateOnRefresh: true
@@ -319,8 +322,8 @@ export default function Darkroom({ photos = [], reducedMotion, startSection }) {
         ease: 'none',
         scrollTrigger: {
           trigger: endTrigger,
-          start: () => `top bottom+=${contactSceneClearance(startTrigger, endTrigger)}`,
-          end: 'top bottom',
+          start: 'bottom bottom',
+          end: 'bottom top',
           scrub: true,
           invalidateOnRefresh: true
         }

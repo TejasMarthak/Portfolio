@@ -31,10 +31,7 @@ function CameraRig({ nodes, reducedMotion, startSection }) {
     if (reducedMotion || !startSection) return undefined;
     const journey = document.getElementById('journey');
     const startTrigger = document.getElementById(startSection);
-    const endTrigger = document.querySelector('#contact .contact-form') ||
-      document.getElementById('contact') ||
-      document.querySelector('.site-footer') ||
-      journey;
+    const endTrigger = document.getElementById('contact') || journey;
     if (!journey || !startTrigger || !endTrigger) return undefined;
     const tween = gsap.to(progress.current, {
       value: 1,

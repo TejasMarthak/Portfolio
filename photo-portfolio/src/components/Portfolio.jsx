@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowDown, ArrowUpRight, Menu, Play, X } from 'lucide-react';
 import { cloudinaryUrl } from '../api';
 import MediaViewer, { MediaLink, MediaTrigger } from '../../../shared/MediaViewer.jsx';
@@ -57,6 +57,59 @@ function VideoGrid({ videos, label, itemLabel }) {
   );
 }
 
+function PinnedPhotoSection({ id, className = '', ariaLabel, children }) {
+  const sectionRef = useRef(null);
+  const stageRef = useRef(null);
+  const contentRef = useRef(null);
+  const [contentOverflow, setContentOverflow] = useState(0);
+  const reducedMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end end'] });
+  const contentY = useTransform(scrollYProgress, [0, 1], [0, -contentOverflow]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const content = contentRef.current;
+    if (!stage || !content) return undefined;
+
+    const measureOverflow = () => {
+      const style = window.getComputedStyle(stage);
+      const availableHeight = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      setContentOverflow(Math.max(0, content.scrollHeight - availableHeight));
+    };
+
+    measureOverflow();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureOverflow);
+    observer?.observe(stage);
+    observer?.observe(content);
+    window.addEventListener('resize', measureOverflow);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measureOverflow);
+    };
+  }, []);
+
+  return (
+    <section
+      ref={sectionRef}
+      id={id}
+      className={`photo-section${className ? ` ${className}` : ''}`}
+      aria-label={ariaLabel}
+      style={{ '--photo-section-overflow': `${contentOverflow}px` }}
+    >
+      <div ref={stageRef} className="photo-section-stage">
+        <motion.div
+          ref={contentRef}
+          className="photo-section-content"
+          style={reducedMotion ? undefined : { y: contentY }}
+        >
+          {children}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 function hasRenderableContent(value) {
   if (typeof value === 'string') return value.trim().length > 0;
   if (typeof value === 'number') return Number.isFinite(value);
@@ -88,6 +141,11 @@ function PhotoGallery({ gallery }) {
 
 export default function Portfolio({ content, settings, canUse3D, reducedMotion }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end end'] });
+  const heroCopyOpacity = useTransform(scrollYProgress, [0, 0.58, 1], [1, 1, 0]);
+  const heroCopyY = useTransform(scrollYProgress, [0, 0.58, 1], [0, 0, -30]);
+  const coverScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const hero = content.hero || {};
   const about = content.about || {};
   const proPortfolioUrl = settings.photoSite?.crossLinkToPro ||
@@ -154,23 +212,37 @@ export default function Portfolio({ content, settings, canUse3D, reducedMotion }
       </header>
 
       <main id="darkroom-journey" className={`photo-journey ${canUse3D ? '' : 'photo-readable'}`}>
-        <section id="home" className="photo-section photo-hero" aria-label={hero.tagline || 'Portfolio introduction'} style={hero.bgURL ? { backgroundImage: `linear-gradient(90deg, #0b0907dd, #0b090766), url("${cloudinaryUrl(hero.bgURL, 1800)}")` } : undefined}>
-          <motion.div className="photo-hero-copy" initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-            <span className="photo-kicker">{hero.kicker || ''}</span>
-            <h1>{hero.tagline || ''}</h1>
-            <p>{hero.subtitle || ''}</p>
-            <a className="photo-scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Explore the work</a>
-          </motion.div>
-          {hero.bgURL && <MediaTrigger className="photo-hero-media-trigger" src={hero.bgURL} title="Portfolio cover image">View cover image</MediaTrigger>}
-          {hero.bgURL && <img className="hero-asset-preload" src={cloudinaryUrl(hero.bgURL, 1800)} alt="" fetchpriority="high" />}
+        <section
+          ref={heroRef}
+          id="home"
+          className={`photo-section photo-hero${reducedMotion ? ' photo-hero-reduced' : ''}`}
+          aria-label={hero.tagline || 'Portfolio introduction'}
+        >
+          <div className="photo-hero-stage">
+            {hero.bgURL && (
+              <motion.div
+                className="photo-hero-media"
+                style={{ scale: reducedMotion ? 1 : coverScale, backgroundImage: `url("${cloudinaryUrl(hero.bgURL, 1800)}")` }}
+                aria-hidden="true"
+              />
+            )}
+            <motion.div className="photo-hero-copy" style={reducedMotion ? undefined : { opacity: heroCopyOpacity, y: heroCopyY }}>
+              <span className="photo-kicker">{hero.kicker || ''}</span>
+              <h1>{hero.tagline || ''}</h1>
+              <p>{hero.subtitle || ''}</p>
+              <a className="photo-scroll-cue" href={`#${firstSection}`}><ArrowDown size={16} /> Explore the work</a>
+            </motion.div>
+            {hero.bgURL && <MediaTrigger className="photo-hero-media-trigger" src={hero.bgURL} title="Portfolio cover image">View cover image</MediaTrigger>}
+            {hero.bgURL && <img className="hero-asset-preload" src={cloudinaryUrl(hero.bgURL, 1800)} alt="" fetchpriority="high" />}
+          </div>
         </section>
 
-        {galleryVisible && <section id="gallery" className="photo-section" aria-label={content.galleryTitle || 'Gallery'}>
+        {galleryVisible && <PinnedPhotoSection id="gallery" ariaLabel={content.galleryTitle || 'Gallery'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.galleryEyebrow || 'Selected frames'}</span><h2>{content.galleryTitle || 'The gallery'}</h2></div>
           <PhotoGallery gallery={gallery} />
-        </section>}
+        </PinnedPhotoSection>}
 
-        {storiesVisible && <section id="stories" className="photo-section" aria-label={content.storiesTitle || 'Stories'}>
+        {storiesVisible && <PinnedPhotoSection id="stories" ariaLabel={content.storiesTitle || 'Stories'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.storiesEyebrow || 'Behind the frame'}</span><h2>{content.storiesTitle || 'Stories in light'}</h2></div>
           <div className="stories-list">{stories.map((story, index) => (
             <article className="story-row" key={`${story.title}-${index}`}>
@@ -178,19 +250,19 @@ export default function Portfolio({ content, settings, canUse3D, reducedMotion }
               <div><span className="photo-kicker">{story.category || ''}</span><h3>{story.title || ''}</h3><p>{story.story || ''}</p></div>
             </article>
           ))}</div>
-        </section>}
+        </PinnedPhotoSection>}
 
-        {reelsVisible && <section id="reels" className="photo-section" aria-label={content.reelsTitle || 'Reels'}>
+        {reelsVisible && <PinnedPhotoSection id="reels" ariaLabel={content.reelsTitle || 'Reels'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.reelsEyebrow || 'Short films'}</span><h2>{content.reelsTitle || 'Reels'}</h2></div>
           <VideoGrid videos={reels} label="Reels" itemLabel="Reel" />
-        </section>}
+        </PinnedPhotoSection>}
 
-        {videosVisible && <section id="videos" className="photo-section" aria-label={content.videosTitle || 'Video projects'}>
+        {videosVisible && <PinnedPhotoSection id="videos" ariaLabel={content.videosTitle || 'Video projects'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.videosEyebrow || 'Motion studies'}</span><h2>{content.videosTitle || 'Moving stories'}</h2></div>
           <VideoGrid videos={videos} label="Video projects" itemLabel="Video project" />
-        </section>}
+        </PinnedPhotoSection>}
 
-        {clientsVisible && <section id="clients" className="clients-section" aria-label={content.clientsTitle || 'Clients'}>
+        {clientsVisible && <PinnedPhotoSection id="clients" className="clients-section" ariaLabel={content.clientsTitle || 'Clients'}>
           <div className="photo-section-heading">
             <span className="photo-kicker">{content.clientsEyebrow || 'Selected collaborators'}</span>
             <h2>{content.clientsTitle || 'Clients'}</h2>
@@ -201,32 +273,34 @@ export default function Portfolio({ content, settings, canUse3D, reducedMotion }
               {client.name && <span className="client-name">{client.name}</span>}
             </div>
           ))}</div>
-        </section>}
+        </PinnedPhotoSection>}
 
-        {aboutVisible && <section id="about" className="photo-section about-section" aria-label={about.title || content.aboutTitle || about.openingLine || 'About'}>
+        {aboutVisible && <PinnedPhotoSection id="about" className="about-section" ariaLabel={about.title || content.aboutTitle || about.openingLine || 'About'}>
+          <div className="photo-section-heading">
+            {about.openingLine && about.openingLine !== (about.title || content.aboutTitle || 'About') && <span className="photo-kicker">{about.openingLine}</span>}
+            <h2>{about.title || content.aboutTitle || 'About'}</h2>
+          </div>
           <div className={`about-photo-copy ${about.photoURL ? 'has-photo' : 'without-photo'}`}>
             {about.photoURL && <MediaTrigger className="about-media-trigger" src={about.photoURL} title={about.photoAlt || 'About photo'}><img src={cloudinaryUrl(about.photoURL, 1000)} alt={about.photoAlt || ''} loading="lazy" /></MediaTrigger>}
             <div>
-              {about.openingLine && about.openingLine !== (about.title || content.aboutTitle || 'About') && <span className="photo-kicker">{about.openingLine}</span>}
-              <h2>{about.title || content.aboutTitle || 'About'}</h2>
               {about.bio && <p>{about.bio}</p>}
               {!!about.gear?.length && <ul>{about.gear.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>}
               {about.availability && <p className="availability">{about.availability}</p>}
             </div>
           </div>
-        </section>}
+        </PinnedPhotoSection>}
 
         {canUse3D && !reducedMotion && contactVisible && hasScenePhotos && <div className="photo-scene-runway" aria-hidden="true" />}
-        {contactVisible && <section id="contact" className="photo-section photo-contact-section" aria-label={content.contactTitle || 'Contact'}>
+        {contactVisible && <PinnedPhotoSection id="contact" className="photo-contact-section" ariaLabel={content.contactTitle || 'Contact'}>
           <div className="photo-section-heading"><span className="photo-kicker">{content.contactEyebrow || ''}</span><h2>{content.contactTitle || 'Let’s create something'}</h2></div>
           <ContactForm projectTypes={projectTypes} />
           <SiteContactDetails contact={settings.contact} social={settings.social} className="photo-contact-meta" />
-        </section>}
+          <footer className="photo-footer">
+            <span>© {new Date().getFullYear()} Tejas. All rights reserved.</span>
+            {settings.photoSite?.crossLinkToPro && <a href={settings.photoSite.crossLinkToPro}>Developer portfolio <ArrowUpRight size={14} /></a>}
+          </footer>
+        </PinnedPhotoSection>}
       </main>
-      <footer className="photo-footer">
-        <span>© {new Date().getFullYear()} Tejas. All rights reserved.</span>
-        {settings.photoSite?.crossLinkToPro && <a href={settings.photoSite.crossLinkToPro}>Developer portfolio <ArrowUpRight size={14} /></a>}
-      </footer>
       </>
     </MediaViewer>
   );
