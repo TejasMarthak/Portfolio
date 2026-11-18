@@ -14,7 +14,7 @@ Portfolio copy and media are intentionally not seeded with personal information.
 - Node.js 22 and npm.
 - MongoDB (Atlas for deployment).
 - Redis for production rate limits and shared OAuth state. A local Redis instance is optional for development; leave `REDIS_URL` blank when it is unavailable.
-- Google OAuth credentials, Cloudinary credentials, and an optional Gmail App Password / linked WhatsApp account for notifications.
+- Google OAuth credentials, Cloudinary credentials, and an optional email provider / linked WhatsApp account for notifications.
 
 ## Local setup
 
@@ -46,7 +46,7 @@ Portfolio copy and media are intentionally not seeded with personal information.
    ADMIN_CLIENT_URL=http://localhost:5175
    ```
 
-7. (Optional) Configure `GMAIL_USER` and a Google **App Password** in `GMAIL_APP_PASSWORD`. Do not use the normal Gmail account password. Set `YOUR_WHATSAPP_JID` to the notification recipient JID.
+7. (Optional) Configure email notifications with `GMAIL_USER` as the recipient and either a Google **App Password** in `GMAIL_APP_PASSWORD` (do not use the normal Gmail password) or a Resend API key in `RESEND_API_KEY` plus a verified sender in `EMAIL_FROM`. When `RESEND_API_KEY` is set, the API uses Resend over HTTPS instead of SMTP. Set `YOUR_WHATSAPP_JID` to the WhatsApp notification recipient.
 
 8. Start the API and all three Vite development servers:
 
@@ -76,7 +76,7 @@ The WhatsApp Web connection uses the community-maintained Baileys library, not t
 
 ## Environment variables
 
-`server/.env.example` documents the complete API configuration. The required production settings include `MONGODB_URI`, `REDIS_URL`, both JWT secrets, the Google OAuth client and callback, `ADMIN_EMAIL`, all three client origins, and `SERVER_URL`. Optional notification integrations use Cloudinary, Gmail, and `YOUR_WHATSAPP_JID`.
+`server/.env.example` documents the complete API configuration. The required production settings include `MONGODB_URI`, `REDIS_URL`, both JWT secrets, the Google OAuth client and callback, `ADMIN_EMAIL`, all three client origins, and `SERVER_URL`. Optional notification integrations use Cloudinary, Gmail or Resend, and `YOUR_WHATSAPP_JID`. If the host times out on Gmail SMTP, use Resend's HTTPS API by setting `RESEND_API_KEY` and a sender verified in Resend as `EMAIL_FROM`; contact content is sent to Resend only when that API key is configured.
 
 Admin sign-in uses persistent, HTTP-only cookies. Access tokens last 15 minutes; refresh tokens last 30 days and rotate when refreshed, so returning within 30 days keeps the same device signed in. Logging out or invalidating the session removes access. If `JWT_REFRESH_EXPIRES` is explicitly set in your local environment or deployment settings, set it to `30d` as well. To rotate a JWT secret, replace it with a newly generated random value of at least 32 characters in the deployment environment, then redeploy; admins must sign in again.
 
